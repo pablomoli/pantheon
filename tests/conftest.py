@@ -1,8 +1,9 @@
 """Shared pytest fixtures for Pantheon tests."""
 from __future__ import annotations
 
+import base64
+
 import pytest
-from fastapi.testclient import TestClient
 
 
 @pytest.fixture()
@@ -13,5 +14,5 @@ def sample_js_bytes() -> bytes:
 
 @pytest.fixture()
 def sample_js_b64(sample_js_bytes: bytes) -> str:
-    import base64
+    """Base64-encoded version of sample_js_bytes for use in API request bodies."""
     return base64.b64encode(sample_js_bytes).decode()
