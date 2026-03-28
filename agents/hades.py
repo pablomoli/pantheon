@@ -17,6 +17,11 @@ from google.adk.agents import Agent
 
 from agents.apollo import apollo
 from agents.model_config import HADES_MODEL
+from agents.tools.memory_tools import (
+    find_similar_jobs,
+    store_agent_output,
+    store_behavioral_fingerprint,
+)
 from agents.tools.sandbox_tools import (
     check_sandbox_health,
     get_report,
@@ -44,8 +49,16 @@ Your job is to submit it to the sandbox, wait for results, and interpret them.
    - What does it actually do step by step?
    - What systems or data are at risk?
    - How severe is this threat?
-5. Transfer to `apollo` — include the job_id and the full ThreatReport dict in
-   your transfer message so Apollo can fetch IOCs and enrich the report.
+5. Call `store_agent_output` with the job_id, agent_name "hades", your
+   plain-language interpretation as output, and temperature 0.3. This stores
+   your analysis for synthesis across multiple runs.
+6. Call `store_behavioral_fingerprint` with the job_id to index this sample's
+   behavioral signature for future similarity searches.
+7. Call `find_similar_jobs` with the job_id. If any matches are returned
+   (similarity > 0.2), include them in your transfer message to Apollo.
+8. Transfer to `apollo` — include the job_id, the full ThreatReport dict, and
+   any similar job matches in your transfer message so Apollo can fetch IOCs
+   and enrich the report.
 
 ## Rules
 
@@ -74,6 +87,9 @@ hades: Agent = Agent(
         submit_sample,
         poll_report,
         get_report,
+        store_agent_output,
+        store_behavioral_fingerprint,
+        find_similar_jobs,
     ],
     sub_agents=[apollo],
 )

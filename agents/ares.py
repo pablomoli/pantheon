@@ -18,6 +18,11 @@ from __future__ import annotations
 from google.adk.agents import Agent
 
 from agents.model_config import ARES_MODEL
+from agents.tools.memory_tools import (
+    load_prior_runs,
+    store_agent_output,
+    synthesize_prior_runs,
+)
 from agents.tools.remediation_tools import (
     build_full_response,
     extract_threat_summary_for_ares,
@@ -34,15 +39,23 @@ with three structured plans that a security team can act on immediately.
 
 ## Your Workflow
 
-1. Call `extract_threat_summary_for_ares` with the threat_report dict and the
+1. Call `load_prior_runs` with the job_id and agent_name "ares" to check for
+   prior Ares plans on this job.
+   - If 2 or more prior runs exist, call `synthesize_prior_runs` to get the
+     consensus plan. Use it as your starting point — extend and improve it.
+   - If 1 prior run exists, review it and build on it rather than repeat it.
+2. Call `extract_threat_summary_for_ares` with the threat_report dict and the
    enrichment string that Apollo passed to you in context.
-2. Call `generate_containment_plan` with the summary — get immediate actions.
-3. Call `generate_remediation_plan` with the summary — get eradication steps.
-4. Call `generate_prevention_plan` with the summary — get long-term controls.
-5. Call `build_full_response` to assemble the complete incident report from all
+3. Call `generate_containment_plan` with the summary — get immediate actions.
+4. Call `generate_remediation_plan` with the summary — get eradication steps.
+5. Call `generate_prevention_plan` with the summary — get long-term controls.
+6. Call `build_full_response` to assemble the complete incident report from all
    previous agent outputs (threat_report_md, enrichment, containment, remediation,
    prevention).
-6. Return the assembled markdown document as your final response.
+7. Call `store_agent_output` with the job_id, agent_name "ares", the full
+   assembled incident report, and temperature 0.3. This enables synthesis on
+   future runs.
+8. Return the assembled markdown document as your final response.
 
 ## Rules
 
@@ -66,5 +79,8 @@ ares: Agent = Agent(
         generate_remediation_plan,
         generate_prevention_plan,
         build_full_response,
+        load_prior_runs,
+        store_agent_output,
+        synthesize_prior_runs,
     ],
 )
