@@ -40,3 +40,25 @@ async def test_analyze_handles_malformed_json(mock_gemini_response: str) -> None
     # Should return a default report rather than raising
     assert report.malware_type  # non-empty fallback
     assert report.risk_level in ("low", "medium", "high", "critical")
+
+
+@pytest.mark.asyncio()
+async def test_analyze_sanitizes_bare_backslashes() -> None:
+    # Gemini sometimes returns Windows paths with bare backslashes, which are
+    # invalid JSON escapes. The sanitizer should recover the structured data.
+    raw_with_backslashes = """{
+      "malware_type": "WSH dropper",
+      "obfuscation_technique": "none",
+      "behavior": ["drops payload"],
+      "risk_level": "high",
+      "affected_systems": ["Windows workstations"],
+      "network_iocs": {"ips": [], "domains": [], "ports": [], "protocols": [], "urls": []},
+      "registry_iocs": ["HKEY_CURRENT_USER\\Software\\Microsoft\\Run\\updater"],
+      "remediation_hints": ["Remove registry key"]
+    }"""
+    analyst = GeminiAnalyst(api_key="test-key")
+    with patch.object(analyst, "_call_gemini", new_callable=AsyncMock, return_value=raw_with_backslashes):
+        report = await analyst.analyze(summary_text="WScript.Shell")
+    assert report.malware_type == "WSH dropper"
+    assert report.risk_level == "high"
+    assert report.registry_iocs  # recovered despite bare backslashes

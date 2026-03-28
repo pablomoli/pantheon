@@ -4,7 +4,8 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any
+import re
+from typing import Any, cast
 
 from google import genai
 from google.genai import types
@@ -73,7 +74,6 @@ class GeminiAnalyst:
             # invalid JSON escapes (e.g. \S, \u not followed by 4 hex digits).
             # Replace every backslash that is not a valid JSON escape sequence
             # with a forward slash and retry before giving up.
-            import re
             # Valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
             sanitized = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r"/", text)
             data = json.loads(sanitized)
@@ -119,5 +119,5 @@ class GeminiAnalyst:
 
 def _safe_risk(value: str) -> RiskLevel:
     if value in ("low", "medium", "high", "critical"):
-        return value  # type: ignore[return-value]
+        return cast(RiskLevel, value)
     return "high"
