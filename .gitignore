@@ -52,3 +52,11 @@ sandbox_outputs/
 # Logs
 *.log
 logs/
+
+.claude/*
+!.claude/settings.json
+# Ignore all CLAUDE.md files in subdirectories
+**/CLAUDE.md
+# Allow ONLY the one in the root directory
+!CLAUDE.md
+
