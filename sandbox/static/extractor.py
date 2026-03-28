@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 # --- Compiled patterns -------------------------------------------------------
 
 _IP_RE = re.compile(r'\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b')
-_URL_RE = re.compile(r'https?://[^\s\'"<>\]]+')
+_URL_RE = re.compile(r'https?://[^\s\'"<>\]]+[^\s\'"<>\].,;]')
 _DOMAIN_RE = re.compile(
     r'\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)'
     r'+(?:com|net|org|io|ru|cn|tk|xyz|top|info|biz|co|me|cc|pw)\b'
@@ -51,12 +51,13 @@ def extract_iocs(source: str, _file_bytes: bytes) -> ExtractedIOCs:
     """Extract all indicators of compromise from malware source text."""
     iocs = ExtractedIOCs()
 
-    all_ips = list(dict.fromkeys(_IP_RE.findall(source)))
-    iocs.ips = all_ips
+    iocs.ips = list(dict.fromkeys(
+        ip for ip in _IP_RE.findall(source) if not _is_private_ip(ip)
+    ))
 
     iocs.urls = list(dict.fromkeys(_URL_RE.findall(source)))
 
-    url_domains = [_extract_domain(u) for u in iocs.urls if _extract_domain(u)]
+    url_domains = [d for u in iocs.urls if (d := _extract_domain(u))]
     standalone = _DOMAIN_RE.findall(source)
     iocs.domains = list(dict.fromkeys(url_domains + standalone))
 

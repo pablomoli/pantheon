@@ -4,9 +4,9 @@ from sandbox.static.extractor import extract_iocs, compute_hashes
 
 
 def test_extract_ip() -> None:
-    source = "connect to 192.168.1.1 on port 4444"
+    source = "connect to 203.0.113.1 on port 4444"
     result = extract_iocs(source, b"")
-    assert "192.168.1.1" in result.ips
+    assert "203.0.113.1" in result.ips
 
 
 def test_extract_url() -> None:
