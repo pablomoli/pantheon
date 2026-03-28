@@ -31,10 +31,21 @@ def test_extract_readable_strings() -> None:
 
 
 def test_deobfuscation_result_summary() -> None:
-    source = "var _0x1a2b=['WScript.Shell','http://evil.com'];"
-    result = DeobfuscationResult.from_source(source, source.encode())
+    source_text = "var _0x1a2b=['WScript.Shell','http://evil.com'];"
+    # Bytes that contain a distinct printable string not in the string array,
+    # plus non-printable bytes separating them (realistic for binary analysis).
+    source_bytes = b"\xff\xfeCreateObject\x00drop_payload.exe\x00\xde\xad\xbe\xef"
+    result = DeobfuscationResult.from_source(source_text, source_bytes)
     assert len(result.string_array) == 2
     assert "=== Extracted string array ===" in result.summary_text
-    assert "=== Additional readable strings (byte scan, not in string array) ===" in result.summary_text
+    second_header = "=== Additional readable strings (byte scan, not in string array) ==="
+    assert second_header in result.summary_text
+    # String array items appear in the first section
     assert "WScript.Shell" in result.summary_text
     assert "http://evil.com" in result.summary_text
+    # Byte-scan-only string appears in the second section
+    second_section = result.summary_text[result.summary_text.index(second_header):]
+    assert "CreateObject" in second_section
+    # String array items must not be duplicated in the second section (dedup guard)
+    assert "WScript.Shell" not in second_section
+    assert "http://evil.com" not in second_section
