@@ -6,7 +6,7 @@ import json
 import logging
 import tarfile
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import docker
 import docker.errors
@@ -23,7 +23,7 @@ class SandboxManager:
     def __init__(self) -> None:
         self._client = docker.from_env()
 
-    def run(self, file_bytes: bytes, filename: str) -> list[dict[str, Any]]:
+    def run(self, file_bytes: bytes) -> list[dict[str, Any]]:
         """
         Execute the sample inside a hardened Docker container.
 
@@ -33,7 +33,7 @@ class SandboxManager:
         container: Container | None = None
         try:
             container = self._create_container()
-            self._copy_files_to_container(container, file_bytes, filename)
+            self._copy_files_to_container(container, file_bytes)
             container.start()
             container.wait(timeout=_TIMEOUT_SECONDS)
             raw_logs = container.logs(stdout=True, stderr=False)
@@ -49,7 +49,7 @@ class SandboxManager:
                     pass
 
     def _create_container(self) -> Container:
-        return self._client.containers.create(  # type: ignore[return-value]
+        return cast(Container, self._client.containers.create(
             image=_IMAGE,
             command="node /tmp/work/harness.js /tmp/work/sample.js",
             detach=True,
@@ -62,10 +62,10 @@ class SandboxManager:
             cap_drop=["ALL"],
             stdin_open=False,
             tty=False,
-        )
+        ))
 
     def _copy_files_to_container(
-        self, container: Container, file_bytes: bytes, filename: str
+        self, container: Container, file_bytes: bytes
     ) -> None:
         """Copy harness.js and the sample into /tmp/work/ via tar archive."""
         harness_bytes = _HARNESS_PATH.read_bytes()

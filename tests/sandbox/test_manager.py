@@ -19,7 +19,7 @@ def mock_docker_client() -> MagicMock:
 def test_analyze_returns_intercept_log(mock_docker_client: MagicMock) -> None:
     with patch("sandbox.dynamic.manager.docker.from_env", return_value=mock_docker_client):
         manager = SandboxManager()
-        result = manager.run(b"var x = 1;", "test.js")
+        result = manager.run(b"var x = 1;")
     assert isinstance(result, list)
     assert result[0]["api"] == "WScript"
 
@@ -27,7 +27,7 @@ def test_analyze_returns_intercept_log(mock_docker_client: MagicMock) -> None:
 def test_container_uses_security_flags(mock_docker_client: MagicMock) -> None:
     with patch("sandbox.dynamic.manager.docker.from_env", return_value=mock_docker_client):
         manager = SandboxManager()
-        manager.run(b"var x = 1;", "test.js")
+        manager.run(b"var x = 1;")
 
     create_kwargs = mock_docker_client.containers.create.call_args.kwargs
     assert create_kwargs.get("network_disabled") is True
@@ -39,7 +39,7 @@ def test_container_uses_security_flags(mock_docker_client: MagicMock) -> None:
 def test_container_removed_on_success(mock_docker_client: MagicMock) -> None:
     with patch("sandbox.dynamic.manager.docker.from_env", return_value=mock_docker_client):
         manager = SandboxManager()
-        manager.run(b"var x = 1;", "test.js")
+        manager.run(b"var x = 1;")
     mock_docker_client.containers.create.return_value.remove.assert_called_once_with(force=True)
 
 
@@ -47,7 +47,7 @@ def test_container_removed_on_error(mock_docker_client: MagicMock) -> None:
     mock_docker_client.containers.create.return_value.start.side_effect = RuntimeError("fail")
     with patch("sandbox.dynamic.manager.docker.from_env", return_value=mock_docker_client):
         manager = SandboxManager()
-        result = manager.run(b"var x = 1;", "test.js")
+        result = manager.run(b"var x = 1;")
     # Should return empty list, not raise, and still remove
     assert result == []
     mock_docker_client.containers.create.return_value.remove.assert_called_once_with(force=True)
