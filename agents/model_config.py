@@ -1,28 +1,43 @@
-"""Gemini model assignments for each Pantheon agent.
+"""Gemini and Nova model assignments for each Pantheon agent.
 
-Routing strategy:
-- Routing / classification tasks  -> gemini-2.5-flash, thinking off
-- Multi-indicator analysis tasks   -> gemini-2.5-flash, thinking on (budget 1024)
-- Final synthesis / planning tasks -> gemini-2.5-pro   (Ares only)
-
-Import the constant for your agent instead of hardcoding a model string.
+This file is the single source of truth for all AI models used in the system.
+You can override these defaults via environment variables in your .env file.
 """
 from __future__ import annotations
 
-# Athena: threat classification is structured and binary — thinking adds no value.
-ATHENA_MODEL = "gemini-2.5-flash"
+import os
 
-# Hades: must correlate sandbox results, deobfuscated strings, and behavioral
-# indicators into a coherent narrative. Moderate thinking budget.
-HADES_MODEL = "gemini-2.5-flash"
+# --- Model Categories ---
 
-# Apollo: IOC enrichment requires reasoning across multiple data sources.
-APOLLO_MODEL = "gemini-2.5-flash"
+# Lightweight: Routing, classification, simple STT fallback.
+LITE_MODEL = os.getenv("PANTHEON_LITE_MODEL", "gemini-3.1-flash-lite")
 
-# Ares: generates the final containment + remediation + prevention plan —
-# the output the judges will hear. Highest-stakes response, use Pro.
-ARES_MODEL = "gemini-2.5-pro"
+# Medium: Correlating analysis results, IOC enrichment.
+MEDIUM_MODEL = os.getenv("PANTHEON_MEDIUM_MODEL", "amazon-nova")
 
-# GeminiAnalyst (Hephaestus static pipeline): behavioral inference from
-# deobfuscated strings. Thinking on — see sandbox/static/gemini_analyst.py.
-GEMINI_ANALYST_MODEL = "gemini-2.5-flash"
+# Heavy: Final synthesis, high-stakes remediation planning, complex reasoning.
+HEAVY_MODEL = os.getenv("PANTHEON_HEAVY_MODEL", "gemini-3-flash")
+
+
+# --- Agent Assignments ---
+
+# Zeus: Root orchestrator. Primary task is routing and compilation.
+ZEUS_MODEL = LITE_MODEL
+
+# Athena: Threat classification and ticket creation. Structured and fast.
+ATHENA_MODEL = LITE_MODEL
+
+# Hades: Malware analysis. Requires correlating sandbox results.
+HADES_MODEL = MEDIUM_MODEL
+
+# Apollo: IOC extraction and threat intelligence enrichment.
+APOLLO_MODEL = MEDIUM_MODEL
+
+# Ares: Final containment, remediation, and prevention planning.
+ARES_MODEL = HEAVY_MODEL
+
+# Muse (Voice): STT fallback model.
+MUSE_STT_MODEL = LITE_MODEL
+
+# GeminiAnalyst (Hephaestus static pipeline): Behavioral inference.
+GEMINI_ANALYST_MODEL = LITE_MODEL

@@ -9,12 +9,13 @@ from google.genai import types
 
 from voice.exceptions import SpeechError, TranscriptionError
 from voice.personas import ZEUS_VOICE_ID
+from agents.model_config import MUSE_STT_MODEL
 
 _ELEVENLABS_BASE_URL: Final[str] = "https://api.elevenlabs.io/v1"
 _STT_MODEL: Final[str] = "scribe_v2"
 _TTS_MODEL: Final[str] = "eleven_multilingual_v2"
 _TTS_OUTPUT_FORMAT: Final[str] = "opus_48000_128"
-_GEMINI_AUDIO_MODEL: Final[str] = "gemini-3.1-flash-lite"
+_GEMINI_AUDIO_MODEL: Final[str] = MUSE_STT_MODEL
 _TIMEOUT: Final[httpx.Timeout] = httpx.Timeout(60.0)
 
 

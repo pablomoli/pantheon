@@ -11,6 +11,7 @@ from google import genai
 from google.genai import types
 
 from sandbox.models import FileIOCs, NetworkIOCs, RiskLevel, ThreatReport
+from agents.model_config import GEMINI_ANALYST_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class GeminiAnalyst:
 
     async def _call_gemini(self, prompt: str) -> str:
         response = await self._client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_ANALYST_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",

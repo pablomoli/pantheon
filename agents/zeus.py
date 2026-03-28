@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from google.adk.agents import Agent
-
+from agents.model_config import ZEUS_MODEL
 from agents.athena import athena
 
 # NOTE: hades, apollo, ares are imported here once Andres's agents are ready.
@@ -15,7 +15,7 @@ from agents.athena import athena
 
 zeus = Agent(
     name="zeus",
-    model="gemini-2.5-flash",
+    model=ZEUS_MODEL,
     instruction="""\
 You are Zeus, the orchestrator of Pantheon — an AI-driven malware analysis system.
 

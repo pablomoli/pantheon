@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from google.adk.agents import Agent
+from agents.model_config import ATHENA_MODEL
 
 _MALWARE_SIGNALS = [
     "malware", "trojan", "ransomware", "reverse shell", "backdoor",
@@ -88,7 +89,7 @@ def create_incident_ticket(
 
 athena = Agent(
     name="athena",
-    model="gemini-2.5-flash",
+    model=ATHENA_MODEL,
     instruction="""You are Athena, the triage specialist in the Pantheon incident response system.
 
 YOUR JOB:
