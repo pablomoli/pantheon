@@ -6,6 +6,9 @@ import re
 from dataclasses import dataclass, field
 
 # Matches: var _0xABCD = ['str1', 'str2', ...] (single or double quoted)
+# NOTE: [^\'"]*  matches unescaped content only. Strings containing escaped
+# quotes (e.g. 'it\'s') cause the outer regex to fail and return [].
+# The fallback in extract_string_array() handles those via manual extraction.
 _STRING_ARRAY_RE = re.compile(
     r'var\s+_0x[a-fA-F0-9]+\s*=\s*(\[(?:[\'"][^\'"]*[\'"](?:,\s*[\'"][^\'"]*[\'"])*)\])'
 )
@@ -26,17 +29,22 @@ class DeobfuscationResult:
         string_array = extract_string_array(source_text)
         readable = extract_readable_strings(source_bytes, min_length=8)
 
-        # Deduplicate and cap for Gemini context
-        interesting = [s for s in (string_array + readable)
-                       if len(s) > 4 and not s.startswith("0x")]
-        deduped = list(dict.fromkeys(interesting))[:500]
+        # Show up to 200 array strings; second section is byte-scan results
+        # that are NOT already shown above, to avoid duplication in Gemini context.
+        shown_array = string_array[:200]
+        shown_set = set(shown_array)
+        extra = [
+            s for s in readable
+            if s not in shown_set and len(s) > 4 and not s.startswith("0x")
+        ]
+        deduped_extra = list(dict.fromkeys(extra))[:300]
 
         summary = "\n".join([
             "=== Extracted string array ===",
-            "\n".join(string_array[:200]),
+            "\n".join(shown_array),
             "",
-            "=== Additional readable strings ===",
-            "\n".join(deduped),
+            "=== Additional readable strings (byte scan, not in string array) ===",
+            "\n".join(deduped_extra),
         ])
 
         return cls(

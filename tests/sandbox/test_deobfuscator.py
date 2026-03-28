@@ -34,4 +34,7 @@ def test_deobfuscation_result_summary() -> None:
     source = "var _0x1a2b=['WScript.Shell','http://evil.com'];"
     result = DeobfuscationResult.from_source(source, source.encode())
     assert len(result.string_array) == 2
-    assert result.summary_text  # non-empty
+    assert "=== Extracted string array ===" in result.summary_text
+    assert "=== Additional readable strings (byte scan, not in string array) ===" in result.summary_text
+    assert "WScript.Shell" in result.summary_text
+    assert "http://evil.com" in result.summary_text
