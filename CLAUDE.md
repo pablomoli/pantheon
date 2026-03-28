@@ -41,11 +41,12 @@ The API contract (the Pydantic models for the sandbox REST service) lives in `sa
 - Python 3.12+
 - `uv` as the package manager — NOT pip, NOT poetry, NOT conda
 - Google ADK (`google-adk`) for multi-agent orchestration
-- Gemini 2.0 Flash for LLM inference
+- Gemini 2.5 Flash for LLM inference
 - `python-telegram-bot` for the Telegram interface
 - ElevenLabs SDK for voice TTS/STT
 - FastAPI + uvicorn for the Hephaestus sandbox service
 - Docker SDK for Python for container management
+- SQLite (Python stdlib, WAL mode) for job persistence in Hephaestus — results stored in `pantheon.db`, survive service restarts
 - Pydantic v2 for all data models
 - mypy strict mode + ruff for code quality
 

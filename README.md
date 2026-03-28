@@ -49,11 +49,12 @@ A Node.js instrumentation harness mocks all dangerous APIs (WScript, ActiveXObje
 
 - Python 3.12+, [uv](https://docs.astral.sh/uv/) package manager
 - [Google ADK](https://google.github.io/adk-docs/) — multi-agent orchestration
-- Gemini 2.0 Flash — LLM inference and deobfuscation analysis
+- Gemini 2.5 Flash — LLM inference and deobfuscation analysis
 - [python-telegram-bot](https://python-telegram-bot.org/) — Telegram interface
 - [ElevenLabs](https://elevenlabs.io/) — TTS and STT
 - FastAPI + uvicorn — Hephaestus sandbox service
 - Docker SDK for Python — container lifecycle
+- SQLite (stdlib, WAL mode) — job persistence in Hephaestus; results survive restarts
 - Pydantic v2 — all data models, strict typing throughout
 
 ---

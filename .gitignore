@@ -49,6 +49,11 @@ MalwareChallenge.zip
 analysis_results/
 sandbox_outputs/
 
+# SQLite job store (runtime artifact — created on first run by Hephaestus)
+pantheon.db
+pantheon.db-wal
+pantheon.db-shm
+
 # Logs
 *.log
 logs/
