@@ -106,9 +106,9 @@ async def _transcribe_elevenlabs(audio_bytes: bytes, mime_type: str) -> str:
 
 async def _transcribe_gemini(audio_bytes: bytes, mime_type: str) -> str:
     """Internal Gemini STT fallback implementation using recommended model."""
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("GEMINI_API")
     if not api_key:
-        raise RuntimeError("GOOGLE_API_KEY is not set")
+        raise RuntimeError("GEMINI_API is not set")
 
     client = genai.Client(api_key=api_key)
     response = await client.aio.models.generate_content(
