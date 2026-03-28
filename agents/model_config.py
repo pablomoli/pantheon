@@ -10,13 +10,13 @@ import os
 # --- Model Categories ---
 
 # Lightweight: Routing, classification, simple STT fallback.
-LITE_MODEL = os.getenv("PANTHEON_LITE_MODEL", "gemini-3.1-flash-lite")
+LITE_MODEL = os.getenv("PANTHEON_LITE_MODEL", "gemini-2.5-flash")
 
 # Medium: Correlating analysis results, IOC enrichment.
-MEDIUM_MODEL = os.getenv("PANTHEON_MEDIUM_MODEL", "amazon-nova")
+MEDIUM_MODEL = os.getenv("PANTHEON_MEDIUM_MODEL", "gemini-2.5-flash")
 
 # Heavy: Final synthesis, high-stakes remediation planning, complex reasoning.
-HEAVY_MODEL = os.getenv("PANTHEON_HEAVY_MODEL", "gemini-3-flash")
+HEAVY_MODEL = os.getenv("PANTHEON_HEAVY_MODEL", "gemini-2.5-flash")
 
 
 # --- Agent Assignments ---

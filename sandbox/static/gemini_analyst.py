@@ -11,12 +11,14 @@ from google import genai
 from google.genai import types
 
 from sandbox.models import FileIOCs, NetworkIOCs, RiskLevel, ThreatReport
-from agents.model_config import GEMINI_ANALYST_MODEL
+
+_MODEL = "gemini-2.5-flash"
 
 logger = logging.getLogger(__name__)
 
 _ANALYSIS_PROMPT = """\
-You are a malware analyst. The following are strings and patterns extracted from an obfuscated JavaScript malware sample.
+You are a malware analyst. The following are strings and patterns extracted
+from an obfuscated JavaScript malware sample.
 
 Analyze this content and respond ONLY with a JSON object matching this exact schema:
 {
@@ -42,7 +44,7 @@ Extracted content:
 
 class GeminiAnalyst:
     def __init__(self, api_key: str | None = None) -> None:
-        self._api_key = api_key or os.environ["GOOGLE_API_KEY"]
+        self._api_key = api_key or os.environ["GEMINI_API"]
         self._client = genai.Client(api_key=self._api_key)
 
     async def analyze(self, summary_text: str) -> ThreatReport:
@@ -57,14 +59,14 @@ class GeminiAnalyst:
 
     async def _call_gemini(self, prompt: str) -> str:
         response = await self._client.aio.models.generate_content(
-            model=GEMINI_ANALYST_MODEL,
+            model=_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 thinking_config=types.ThinkingConfig(thinking_budget=1024),
             ),
         )
-        return response.text
+        return response.text or ""
 
     def _parse_response(self, raw: str) -> ThreatReport:
         # Strip markdown code fences if present
