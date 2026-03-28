@@ -109,15 +109,15 @@ docker compose -f infra/docker-compose.yml up -d
 
 ## Team
 
-### UCF
+### ![UCF](https://img.shields.io/badge/UCF-Knights-000000?style=flat-square&labelColor=FFC904) UCF
 
 - Pablo Molina
 - Sai Ramineni
 
-### FIU
+### ![FIU](https://img.shields.io/badge/FIU-Panthers-081E3F?style=flat-square&labelColor=B6862C) FIU
 
 - Gabriel Suarez
 
-### USF
+### ![USF](https://img.shields.io/badge/USF-Bulls-006747?style=flat-square&labelColor=CFC493) USF
 
 - Andres Dominguez
