@@ -10,6 +10,25 @@
 
 ---
 
+## Progress
+
+| Task | Status | Commit |
+|---|---|---|
+| 1: Event models (sandbox/models.py) | DONE | `feat: add event system models to sandbox/models.py` |
+| 2: EventBus (sandbox/events.py) | DONE | `feat: add EventBus for WebSocket pub/sub` |
+| 3: /ws + POST /events (sandbox/main.py) | DONE | `feat: add /ws WebSocket and POST /events endpoints to Hephaestus` |
+| 4: emit_event() helper (agents/tools/event_tools.py) | DONE | `feat: add emit_event() helper for agent tool event emission` |
+| 5: Wrap sandbox_tools.py | pending | — |
+| 6: Wrap memory/report/remediation tools | pending | — |
+| 7: vps_tools.py | pending | — |
+| 8: Wire Hades to VPS + STAGE_UNLOCKED | pending | — |
+| 9: Hermes dashboard link + activation event | pending (Gabriel) | — |
+| 10: Dashboard WebSocket integration | pending (Sai) | — |
+| 11: Windows VPS setup | pending (manual) | — |
+| 12: End-to-end demo verification | pending (all) | — |
+
+---
+
 ## File Map
 
 | File | Action | Owner |
@@ -40,7 +59,7 @@
 
 The existing models file has no event-related types. These additions give every service a shared vocabulary for what events look like.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/sandbox/test_events.py`:
 
@@ -114,7 +133,7 @@ def test_attack_stage_fields() -> None:
     assert stage.stage_id == "persistence"
 ```
 
-- [ ] **Step 2: Run test to confirm it fails**
+- [x] **Step 2: Run test to confirm it fails**
 
 ```bash
 uv run pytest tests/sandbox/test_events.py -v
@@ -122,7 +141,7 @@ uv run pytest tests/sandbox/test_events.py -v
 
 Expected: `ImportError` — `EventType`, `AgentName`, etc. not yet defined.
 
-- [ ] **Step 3: Add event models to sandbox/models.py**
+- [x] **Step 3: Add event models to sandbox/models.py**
 
 Add after the existing `SimilarJob` class (at the bottom of the file):
 
@@ -223,7 +242,7 @@ from datetime import datetime, timezone
 from enum import Enum
 ```
 
-- [ ] **Step 4: Run tests to confirm they pass**
+- [x] **Step 4: Run tests to confirm they pass**
 
 ```bash
 uv run pytest tests/sandbox/test_events.py -v
@@ -232,7 +251,7 @@ uv run mypy sandbox/models.py
 
 Expected: all tests pass, mypy clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sandbox/models.py tests/sandbox/test_events.py
@@ -249,7 +268,7 @@ git commit -m "feat: add event system models to sandbox/models.py"
 
 The EventBus holds one `asyncio.Queue` per connected WebSocket subscriber. `publish()` is synchronous (puts to all queues via `put_nowait`). `subscribe()` is async and drains the queue, sending each event as JSON text to the WebSocket until disconnect.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/sandbox/test_events.py`:
 
@@ -322,7 +341,7 @@ async def test_subscribe_sends_events_to_websocket() -> None:
 
 Also add `import pytest` to the top of the test file.
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```bash
 uv run pytest tests/sandbox/test_events.py -v -k "EventBus"
@@ -330,7 +349,7 @@ uv run pytest tests/sandbox/test_events.py -v -k "EventBus"
 
 Expected: `ImportError` — `sandbox.events` does not exist.
 
-- [ ] **Step 3: Create sandbox/events.py**
+- [x] **Step 3: Create sandbox/events.py**
 
 ```python
 """EventBus — in-memory pub/sub for the Pantheon WebSocket event stream.
@@ -391,7 +410,7 @@ class EventBus:
 bus: EventBus = EventBus()
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 uv run pytest tests/sandbox/test_events.py -v
@@ -400,7 +419,7 @@ uv run mypy sandbox/events.py
 
 Expected: all pass, mypy clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sandbox/events.py tests/sandbox/test_events.py
@@ -415,7 +434,7 @@ git commit -m "feat: add EventBus for WebSocket pub/sub"
 - Modify: `sandbox/main.py`
 - Test: `tests/sandbox/test_main.py` (extend)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/sandbox/test_main.py`:
 
@@ -449,7 +468,7 @@ def test_websocket_connects_and_receives_event(client: TestClient) -> None:
     assert received["tool"] == "submit_sample"
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```bash
 uv run pytest tests/sandbox/test_main.py -v -k "events or websocket"
@@ -457,7 +476,7 @@ uv run pytest tests/sandbox/test_main.py -v -k "events or websocket"
 
 Expected: 404 on `/events`, and the websocket test will fail — the endpoints don't exist yet.
 
-- [ ] **Step 3: Update sandbox/main.py**
+- [x] **Step 3: Update sandbox/main.py**
 
 Add these imports at the top (alongside existing imports):
 
@@ -494,7 +513,7 @@ async def receive_event(event: PantheonEvent) -> None:
     bus.publish(event)
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 uv run pytest tests/sandbox/test_main.py -v
@@ -503,7 +522,7 @@ uv run mypy sandbox/main.py
 
 Expected: all pass, mypy clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sandbox/main.py tests/sandbox/test_main.py
@@ -520,7 +539,7 @@ git commit -m "feat: add /ws WebSocket and POST /events endpoints to Hephaestus"
 
 This is the helper all agents call. It must never raise or block — a failed event emission must not break a tool call.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/agents/test_event_tools.py`:
 
@@ -574,7 +593,7 @@ async def test_emit_event_does_not_raise_on_network_failure() -> None:
         await emit_event(EventType.ERROR, agent=AgentName.ZEUS, payload={"msg": "test"})
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```bash
 uv run pytest tests/agents/test_event_tools.py -v
@@ -582,7 +601,7 @@ uv run pytest tests/agents/test_event_tools.py -v
 
 Expected: `ImportError` — module does not exist.
 
-- [ ] **Step 3: Create agents/tools/event_tools.py**
+- [x] **Step 3: Create agents/tools/event_tools.py**
 
 ```python
 """Event emission helper — thin wrapper around POST /events on Hephaestus.
@@ -634,7 +653,7 @@ async def emit_event(
         logger.debug("event emit failed (non-fatal): %s", exc)
 ```
 
-- [ ] **Step 4: Export from agents/tools/__init__.py**
+- [x] **Step 4: Export from agents/tools/__init__.py**
 
 Open `agents/tools/__init__.py` and add `emit_event` to `__all__`:
 
@@ -642,7 +661,7 @@ Open `agents/tools/__init__.py` and add `emit_event` to `__all__`:
 from agents.tools.event_tools import emit_event
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 uv run pytest tests/agents/test_event_tools.py -v
@@ -651,7 +670,7 @@ uv run mypy agents/tools/event_tools.py
 
 Expected: all pass, mypy clean.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add agents/tools/event_tools.py agents/tools/__init__.py tests/agents/test_event_tools.py
