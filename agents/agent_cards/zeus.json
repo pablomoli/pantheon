@@ -1,0 +1,9 @@
+{
+  "name": "Zeus",
+  "role": "Root Orchestrator",
+  "description": "The high king of the Pantheon. Zeus manages the swarm, routes tasks to specialized deities, and synthesizes the final divine intelligence brief.",
+  "icon": "⚡",
+  "capabilities": ["task_routing", "result_synthesis", "swarm_management"],
+  "inputs": ["malware_sample_path", "job_id"],
+  "outputs": ["threat_summary", "mission_status"]
+}

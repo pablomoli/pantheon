@@ -13,11 +13,15 @@ export type EventType =
   | "PROCESS_EVENT"
   | "NETWORK_EVENT"
   | "HANDOFF"
+  | "TELEMETRY"
+  | "THOUGHT"
+  | "AGENT_COMMAND"
   | "ERROR";
 
 export type AgentName = "zeus" | "athena" | "hades" | "apollo" | "ares" | "hermes" | "artemis" | "hephaestus";
 
 export interface PantheonEvent {
+  id: string;
   type: EventType;
   timestamp: string;
   agent?: AgentName;
@@ -32,6 +36,7 @@ export interface AgentStatus {
   current_task?: string;
   last_event_time?: string;
   event_count: number;
+  last_thought?: string;
 }
 
 export interface AttackStage {
@@ -85,6 +90,8 @@ export class EventStore {
   private iocs: Map<string, IOCEntry> = new Map();
   private processes: Map<string, ProcessNode> = new Map();
   private currentJob: JobState | null = null;
+  private telemetry: any[] = [];
+  private handoffs: any[] = [];
   private subscribers: Set<() => void> = new Set();
 
   constructor() {
@@ -162,6 +169,34 @@ export class EventStore {
       });
     }
 
+    // Handle telemetry
+    if (event.type === "TELEMETRY") {
+      this.telemetry.push({
+        timestamp: eventWithTime.timestamp,
+        agent: event.agent || "system",
+        command: event.payload.command as string,
+        output: event.payload.output as string,
+        stream: event.payload.stream as "stdin" | "stdout" | "stderr",
+      });
+      if (this.telemetry.length > 200) this.telemetry.shift();
+    }
+
+    // Handle thoughts
+    if (event.type === "THOUGHT") {
+      const agentObj = this.agents.get(event.agent!);
+      if (agentObj) agentObj.last_thought = event.payload.thought as string;
+    }
+
+    // Handle handoffs for the graph
+    if (event.type === "HANDOFF") {
+      this.handoffs.push({
+        from: event.payload.from as AgentName,
+        to: event.payload.to as AgentName,
+        timestamp: eventWithTime.timestamp,
+      });
+      if (this.handoffs.length > 50) this.handoffs.shift();
+    }
+
     this.notify();
   }
 
@@ -234,6 +269,14 @@ export class EventStore {
       critical_iocs: iocs.filter((i) => i.severity === "critical").length,
       stages_discovered: this.stages.size,
     };
+  }
+
+  getTelemetry() {
+    return this.telemetry;
+  }
+
+  getHandoffs() {
+    return this.handoffs;
   }
 
   subscribe(callback: () => void): () => void {

@@ -1,0 +1,20 @@
+{
+  "name": "Ares",
+  "role": "Containment",
+  "description": "The God of War. Ares prepares the battlefield for defense, generating containment playbooks, remediation steps, and YARA/Sigma rules for immediate response.",
+  "icon": "\u2694\ufe0f",
+  "capabilities": [
+    "incident_response",
+    "remediation_planning",
+    "signature_generation"
+  ],
+  "inputs": [
+    "threat_report",
+    "enriched_iocs"
+  ],
+  "outputs": [
+    "containment_plan",
+    "remediation_plan",
+    "detection_signatures"
+  ]
+}

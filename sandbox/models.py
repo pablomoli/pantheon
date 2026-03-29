@@ -180,6 +180,9 @@ class EventType(str, Enum):
     PROCESS_EVENT = "process_event"
     NETWORK_EVENT = "network_event"
     ANALYSIS_COMPLETE = "analysis_complete"
+    TELEMETRY = "telemetry"
+    THOUGHT = "thought"
+    AGENT_COMMAND = "agent_command"
     ERROR = "error"
 
 

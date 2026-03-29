@@ -1,0 +1,19 @@
+{
+  "name": "Hermes",
+  "role": "Gateway & Delivery",
+  "description": "The Messenger God. Hermes delivers critical alerts to analysts via Telegram and voice, ensuring zero-latency awareness of active incidents.",
+  "icon": "\ud83c\udf0a",
+  "capabilities": [
+    "alerting",
+    "telegram_gateway",
+    "vocal_briefing"
+  ],
+  "inputs": [
+    "incident_summary",
+    "analyst_pings"
+  ],
+  "outputs": [
+    "delivery_confirmation",
+    "session_metrics"
+  ]
+}

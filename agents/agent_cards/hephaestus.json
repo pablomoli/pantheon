@@ -1,0 +1,18 @@
+{
+  "name": "Hephaestus",
+  "role": "Sandbox Forge",
+  "description": "The Divine Blacksmith. Hephaestus constructs the airtight Docker environments where Hades performs his investigations.",
+  "icon": "\u2699\ufe0f",
+  "capabilities": [
+    "resource_provisioning",
+    "docker_isolation",
+    "api_gateway"
+  ],
+  "inputs": [
+    "provision_request"
+  ],
+  "outputs": [
+    "sandbox_health",
+    "api_endpoints"
+  ]
+}
