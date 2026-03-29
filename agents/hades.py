@@ -16,6 +16,7 @@ from __future__ import annotations
 from google.adk.agents import Agent
 
 from agents.apollo import apollo
+<<<<<<< HEAD
 from agents.model_config import HADES_MODEL
 from agents.tools.event_tools import emit_event
 from agents.tools.memory_tools import (
@@ -23,24 +24,36 @@ from agents.tools.memory_tools import (
     store_agent_output,
     store_behavioral_fingerprint,
 )
+=======
+>>>>>>> origin/andres/agents
 from agents.tools.sandbox_tools import (
     check_sandbox_health,
     get_report,
     poll_report,
     submit_sample,
 )
+<<<<<<< HEAD
 from agents.tools.vps_tools import detonate_sample
+=======
+>>>>>>> origin/andres/agents
 
 _INSTRUCTION = """\
 You are Hades, the god of the underworld — Pantheon's malware analysis engine.
 
 You receive a file path pointing to a suspicious sample that needs analysis.
+<<<<<<< HEAD
 Your job is to submit it to the sandbox, wait for results, interpret them,
 run live detonation on the Windows VPS, and emit structured attack chain events.
 
 ## Your Workflow
 
 0. Call `emit_event` with type=AGENT_ACTIVATED, agent=hades, payload={"step": "start"}.
+=======
+Your job is to submit it to the sandbox, wait for results, and interpret them.
+
+## Your Workflow
+
+>>>>>>> origin/andres/agents
 1. (Optional) Call `check_sandbox_health` to confirm the sandbox is available.
 2. Call `submit_sample` with the file path. Use analysis_type "both" unless
    the user specifically requests "static" or "dynamic" only.
@@ -53,6 +66,7 @@ run live detonation on the Windows VPS, and emit structured attack chain events.
    - What does it actually do step by step?
    - What systems or data are at risk?
    - How severe is this threat?
+<<<<<<< HEAD
 5. Call `detonate_sample` with the same file path to run the sample on the
    live Windows VPS under Procmon and FakeNet-NG monitoring.
 6. For each category of evidence found in the detonation result, call
@@ -80,6 +94,10 @@ run live detonation on the Windows VPS, and emit structured attack chain events.
     agent=hades, job_id=job_id, payload={"from": "hades", "to": "apollo"}.
 11. Transfer to `apollo` — include the job_id, the full ThreatReport dict,
     detonation results, and any similar job matches in your transfer message.
+=======
+5. Transfer to `apollo` — include the job_id and the full ThreatReport dict in
+   your transfer message so Apollo can fetch IOCs and enrich the report.
+>>>>>>> origin/andres/agents
 
 ## Rules
 
@@ -88,6 +106,7 @@ run live detonation on the Windows VPS, and emit structured attack chain events.
 - If `poll_report` raises TimeoutError, call `get_report` once to retrieve
   whatever partial results exist and proceed with those.
 - If the sandbox health check fails, warn the user but attempt analysis anyway.
+<<<<<<< HEAD
 - If `detonate_sample` returns an error (WINDOWS_VPS_IP not configured), log
   it and continue — VPS detonation is best-effort.
 - Your plain-language interpretation must be specific and technical — describe
@@ -142,11 +161,21 @@ the sandbox/VPS evidence:
   `Sf2.dll`, `SxIn.dll`
 - If any of these are detected at detonation time, the dropper will abort
   before dropping payloads
+=======
+- Your plain-language interpretation must be specific and technical — describe
+  WHAT the malware does, not just that it is "suspicious".
+- Never attempt to execute the sample yourself. All execution is handled by the
+  sandbox.
+>>>>>>> origin/andres/agents
 """
 
 hades: Agent = Agent(
     name="hades",
+<<<<<<< HEAD
     model=HADES_MODEL,
+=======
+    model="gemini-2.0-flash",
+>>>>>>> origin/andres/agents
     description=(
         "Malware analysis agent. Submits samples to the Hephaestus sandbox, "
         "polls for results, and interprets the ThreatReport in plain language "
@@ -158,11 +187,14 @@ hades: Agent = Agent(
         submit_sample,
         poll_report,
         get_report,
+<<<<<<< HEAD
         store_agent_output,
         store_behavioral_fingerprint,
         find_similar_jobs,
         detonate_sample,
         emit_event,
+=======
+>>>>>>> origin/andres/agents
     ],
     sub_agents=[apollo],
 )

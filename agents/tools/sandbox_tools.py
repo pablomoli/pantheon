@@ -15,8 +15,12 @@ from typing import Any
 
 import httpx
 
+<<<<<<< HEAD
 from sandbox.models import AnalyzeRequest, AnalyzeResponse, AgentName, EventType, HealthResponse, IOCReport, ThreatReport
 from agents.tools.event_tools import emit_event
+=======
+from sandbox.models import AnalyzeRequest, AnalyzeResponse, HealthResponse, IOCReport, ThreatReport
+>>>>>>> origin/andres/agents
 
 _SANDBOX_URL: str = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
 _POLL_INTERVAL: float = 2.0
@@ -36,12 +40,15 @@ async def submit_sample(file_path: str, analysis_type: str = "both") -> dict[str
     Returns:
         Dict with ``job_id`` (str) and ``status`` ("queued" or "running").
     """
+<<<<<<< HEAD
     await emit_event(
         EventType.TOOL_CALLED,
         agent=AgentName.HADES,
         tool="submit_sample",
         payload={"file_path": file_path, "analysis_type": analysis_type},
     )
+=======
+>>>>>>> origin/andres/agents
     path = Path(file_path)
     raw_bytes = path.read_bytes()
     b64 = base64.b64encode(raw_bytes).decode()
@@ -62,6 +69,7 @@ async def submit_sample(file_path: str, analysis_type: str = "both") -> dict[str
         resp.raise_for_status()
         result = AnalyzeResponse.model_validate(resp.json())
 
+<<<<<<< HEAD
     await emit_event(
         EventType.TOOL_RESULT,
         agent=AgentName.HADES,
@@ -85,6 +93,11 @@ async def _fetch_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_d
     return report.model_dump()
 
 
+=======
+    return {"job_id": result.job_id, "status": result.status}
+
+
+>>>>>>> origin/andres/agents
 async def get_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump()
     """Fetch the current threat analysis report for a sandbox job.
 
@@ -97,6 +110,7 @@ async def get_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump
     Returns:
         Dict representation of :class:`~sandbox.models.ThreatReport`.
     """
+<<<<<<< HEAD
     await emit_event(
         EventType.TOOL_CALLED,
         agent=AgentName.HADES,
@@ -113,6 +127,13 @@ async def get_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump
         payload={"status": report.get("status")},
     )
     return report
+=======
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(f"{_SANDBOX_URL}/sandbox/report/{job_id}")
+        resp.raise_for_status()
+        report = ThreatReport.model_validate(resp.json())
+    return report.model_dump()
+>>>>>>> origin/andres/agents
 
 
 async def get_iocs(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump()
@@ -128,16 +149,20 @@ async def get_iocs(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump()
         ``ips``, ``domains``, ``file_hashes``, ``file_paths``, ``ports``,
         ``registry_keys``, ``cve_ids``, and ``urls``.
     """
+<<<<<<< HEAD
     await emit_event(
         EventType.TOOL_CALLED,
         agent=AgentName.APOLLO,
         tool="get_iocs",
         payload={"job_id": job_id},
     )
+=======
+>>>>>>> origin/andres/agents
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.get(f"{_SANDBOX_URL}/sandbox/iocs/{job_id}")
         resp.raise_for_status()
         ioc_report = IOCReport.model_validate(resp.json())
+<<<<<<< HEAD
     ioc_report_dict = ioc_report.model_dump()
     await emit_event(
         EventType.TOOL_RESULT,
@@ -150,6 +175,9 @@ async def get_iocs(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump()
         },
     )
     return ioc_report_dict
+=======
+    return ioc_report.model_dump()
+>>>>>>> origin/andres/agents
 
 
 async def poll_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump()
@@ -169,6 +197,7 @@ async def poll_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dum
         TimeoutError: The job did not complete within the polling window.
         httpx.HTTPStatusError: The sandbox returned an HTTP error response.
     """
+<<<<<<< HEAD
     await emit_event(
         EventType.TOOL_CALLED,
         agent=AgentName.HADES,
@@ -185,6 +214,11 @@ async def poll_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dum
                 job_id=job_id,
                 payload={"status": report.get("status")},
             )
+=======
+    for _ in range(_MAX_POLLS):
+        report = await get_report(job_id)
+        if report.get("status") in ("complete", "failed"):
+>>>>>>> origin/andres/agents
             return report
         await asyncio.sleep(_POLL_INTERVAL)
 
@@ -203,16 +237,20 @@ async def check_sandbox_health() -> dict[str, Any]:  # Any: health json payload
         Dict with ``status`` ("ok" or "degraded"), ``docker_available`` (bool),
         and ``version`` (str).
     """
+<<<<<<< HEAD
     await emit_event(
         EventType.TOOL_CALLED,
         agent=AgentName.HADES,
         tool="check_sandbox_health",
         payload={},
     )
+=======
+>>>>>>> origin/andres/agents
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(f"{_SANDBOX_URL}/sandbox/health")
         resp.raise_for_status()
     health = HealthResponse.model_validate(resp.json())
+<<<<<<< HEAD
     health_dict = health.model_dump()
     await emit_event(
         EventType.TOOL_RESULT,
@@ -224,3 +262,6 @@ async def check_sandbox_health() -> dict[str, Any]:  # Any: health json payload
         },
     )
     return health_dict
+=======
+    return health.model_dump()
+>>>>>>> origin/andres/agents

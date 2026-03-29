@@ -16,12 +16,15 @@ from __future__ import annotations
 from google.adk.agents import Agent
 
 from agents.ares import ares
+<<<<<<< HEAD
 from agents.model_config import APOLLO_MODEL
 from agents.tools.memory_tools import (
     load_prior_runs,
     store_agent_output,
     synthesize_prior_runs,
 )
+=======
+>>>>>>> origin/andres/agents
 from agents.tools.report_tools import (
     enrich_iocs_with_threat_intel,
     format_threat_report,
@@ -30,7 +33,11 @@ from agents.tools.report_tools import (
 )
 from agents.tools.sandbox_tools import get_iocs, get_report
 
+<<<<<<< HEAD
 _INSTRUCTION = r"""\
+=======
+_INSTRUCTION = """\
+>>>>>>> origin/andres/agents
 You are Apollo, the god of knowledge — Pantheon's IOC extraction and threat
 intelligence specialist.
 
@@ -39,6 +46,7 @@ ThreatReport dict in context.
 
 ## Your Workflow
 
+<<<<<<< HEAD
 1. Call `load_prior_runs` with the job_id and agent_name "apollo" to check for
    prior Apollo work on this job. If prior runs exist, review them and extend
    rather than repeat — build on what was already discovered.
@@ -54,6 +62,17 @@ ThreatReport dict in context.
    enrichment and report output combined, and temperature 0.3. This stores your
    analysis for synthesis across multiple runs.
 8. Transfer to `ares` — pass the formatted report, enrichment text, and the
+=======
+1. Call `get_iocs` with the job_id to fetch the flat IOC list.
+2. Call `ioc_report_to_json` to serialise the IOC report for enrichment.
+3. Call `enrich_iocs_with_threat_intel` with the JSON string — Gemini will
+   research each indicator and identify known threat actor/malware associations.
+4. Call `format_threat_report` with the ThreatReport dict to produce a
+   structured markdown report.
+5. Call `summarise_ioc_report` with the IOC report to produce a one-paragraph
+   IOC summary.
+6. Transfer to `ares` — pass the formatted report, enrichment text, and the
+>>>>>>> origin/andres/agents
    original ThreatReport dict in your message so Ares can generate response plans.
 
 ## Rules
@@ -62,6 +81,7 @@ ThreatReport dict in context.
 - Include the full formatted threat report in your transfer message to Ares.
 - If `get_iocs` fails, proceed with the data available from the ThreatReport
   network_iocs and file_iocs fields and note the failure.
+<<<<<<< HEAD
 
 ## WSH JScript Dropper — Known IOC Patterns
 
@@ -134,11 +154,17 @@ did not surface them:
 **C2 host/port:** Still encrypted in the AsyncRAT Settings class binary.
 FakeNet-NG on the Windows VPS will capture the outbound C2 connection attempt
 as the only reliable path to recover the host and port.
+=======
+>>>>>>> origin/andres/agents
 """
 
 apollo: Agent = Agent(
     name="apollo",
+<<<<<<< HEAD
     model=APOLLO_MODEL,
+=======
+    model="gemini-2.0-flash",
+>>>>>>> origin/andres/agents
     description=(
         "IOC extraction, Gemini threat-intel enrichment, and report formatting. "
         "Fetches IOC data from the sandbox, enriches with threat intelligence, "
@@ -152,9 +178,12 @@ apollo: Agent = Agent(
         enrich_iocs_with_threat_intel,
         format_threat_report,
         summarise_ioc_report,
+<<<<<<< HEAD
         load_prior_runs,
         store_agent_output,
         synthesize_prior_runs,
+=======
+>>>>>>> origin/andres/agents
     ],
     sub_agents=[ares],
 )

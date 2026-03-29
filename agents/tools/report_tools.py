@@ -13,14 +13,21 @@ from typing import Any
 from google import genai
 from google.genai import types as genai_types
 
+<<<<<<< HEAD
 from agents.tools.event_tools import emit_event
 from sandbox.models import AgentName, EventType
 
+=======
+>>>>>>> origin/andres/agents
 _MODEL: str = "gemini-2.5-flash"
 
 
 def _gemini_client() -> genai.Client:
+<<<<<<< HEAD
     """Return an authenticated Gemini client using GEMINI_API."""
+=======
+    """Return an authenticated Gemini client using GOOGLE_API_KEY."""
+>>>>>>> origin/andres/agents
     api_key: str = os.environ["GEMINI_API"]
     return genai.Client(api_key=api_key)
 
@@ -39,12 +46,15 @@ async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
     Returns:
         Plain-text threat intelligence enrichment from Gemini (markdown).
     """
+<<<<<<< HEAD
     await emit_event(
         EventType.TOOL_CALLED,
         agent=AgentName.APOLLO,
         tool="enrich_iocs_with_threat_intel",
         payload={"ioc_count": ioc_report_json.count('"')},
     )
+=======
+>>>>>>> origin/andres/agents
     client = _gemini_client()
     prompt = (
         "You are a threat intelligence analyst. Below is a set of indicators of "
@@ -64,6 +74,7 @@ async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
             max_output_tokens=2048,
         ),
     )
+<<<<<<< HEAD
     result = response.text or "(no enrichment generated)"
     await emit_event(
         EventType.TOOL_RESULT,
@@ -72,6 +83,9 @@ async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
         payload={"enrichment_length": len(result)},
     )
     return result
+=======
+    return response.text or "(no enrichment generated)"
+>>>>>>> origin/andres/agents
 
 
 def format_threat_report(report: dict[str, Any]) -> str:  # Any: nested ThreatReport data
