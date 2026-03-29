@@ -137,3 +137,16 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 async def receive_event(event: PantheonEvent) -> None:
     """Accept an event from any agent and broadcast it to all /ws subscribers."""
     bus.publish(event)
+
+
+@app.post("/sandbox/agents/{agent_name}/command", status_code=204)
+async def agent_command(agent_name: AgentName, command: str, job_id: str | None = None) -> None:
+    """Send a control command to a specific agent."""
+    event = PantheonEvent(
+        type=EventType.AGENT_COMMAND,
+        agent=agent_name,
+        job_id=job_id,
+        payload={"command": command},
+    )
+    bus.publish(event)
+    logger.info("Control command '%s' sent to agent %s", command, agent_name)

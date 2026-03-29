@@ -33,60 +33,62 @@ export default function JobOverview({ store }: { store: EventStore }) {
 
   if (!job) {
     return (
-      <div className="border border-slate-800 rounded-lg p-4 bg-slate-900/30">
-        <p className="text-xs text-slate-500">No active job</p>
+      <div className="glass-panel rounded-2xl p-6 border-gold/10">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-gold-dark/40">Job Overview</p>
+        <p className="text-xs text-muted mt-4 italic">Awaiting divine observation...</p>
       </div>
     );
   }
 
   const statusColors = {
-    PENDING: 'bg-slate-500/10 text-slate-400',
-    ANALYZING: 'bg-teal-500/10 text-teal-300',
-    COMPLETE: 'bg-emerald-500/10 text-emerald-300',
-    ERROR: 'bg-red-500/10 text-red-300',
+    PENDING: 'bg-gold/10 text-gold-dark border-gold/20',
+    ANALYZING: 'bg-amber-100/50 text-amber-700 border-amber-200',
+    COMPLETE: 'bg-green-100/50 text-green-700 border-green-200',
+    ERROR: 'bg-red-100/50 text-red-700 border-red-200',
   };
 
   const color = statusColors[job.status as keyof typeof statusColors] || statusColors.PENDING;
 
   return (
-    <div className="border border-slate-800 rounded-lg p-4 bg-slate-900/30 space-y-4">
+    <div className="glass-panel rounded-2xl p-6 border-gold/10 space-y-6">
       <div>
-        <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-          Job Overview
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-gold-dark/60">
+          Current Mission
         </h3>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div>
-          <label className="text-xs text-slate-500 uppercase tracking-wider block mb-1">
-            Job ID
+          <label className="text-[9px] font-bold text-gold-dark/40 uppercase tracking-wider block mb-1">
+            Mortal Sample
           </label>
-          <code className="text-sm font-mono text-slate-200 break-all">
-            {job.id}
-          </code>
+          <p className="text-sm font-serif font-bold text-ink">
+            {job.sampleName || 'Unknown Sample'}
+          </p>
         </div>
 
         <div>
-          <label className="text-xs text-slate-500 uppercase tracking-wider block mb-1">
-            Status
+          <label className="text-[9px] font-bold text-gold-dark/40 uppercase tracking-wider block mb-1">
+            Divine Status
           </label>
-          <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${color}`}>
+          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${color}`}>
             {job.status}
           </span>
         </div>
 
-        <div>
-          <label className="text-xs text-slate-500 uppercase tracking-wider block mb-1">
-            Created
-          </label>
-          <p className="text-sm text-slate-300">{job.createdAt}</p>
-        </div>
-
-        <div>
-          <label className="text-xs text-slate-500 uppercase tracking-wider block mb-1">
-            Events Emitted
-          </label>
-          <p className="text-sm text-slate-300">{job.eventCount}</p>
+        <div className="pt-2 grid grid-cols-2 gap-4 border-t border-gold/5">
+          <div>
+            <label className="text-[9px] font-bold text-gold-dark/40 uppercase tracking-wider block mb-1">
+              Events
+            </label>
+            <p className="text-sm font-bold text-ink">{job.eventCount}</p>
+          </div>
+          <div>
+            <label className="text-[9px] font-bold text-gold-dark/40 uppercase tracking-wider block mb-1">
+              Job ID
+            </label>
+            <p className="text-[10px] font-mono text-gold-dark truncate" title={job.id}>{job.id.slice(0, 8)}...</p>
+          </div>
         </div>
       </div>
     </div>

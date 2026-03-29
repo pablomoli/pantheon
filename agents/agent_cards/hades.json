@@ -1,0 +1,20 @@
+{
+  "name": "Hades",
+  "role": "Dynamic Execution",
+  "description": "The Lord of the Underworld. Hades detonates malware samples in isolated environments, intercepts process calls, and reveals the hidden network behaviors of any threat.",
+  "icon": "\ud83d\udc80",
+  "capabilities": [
+    "sandbox_detonation",
+    "process_monitoring",
+    "behavioral_analysis"
+  ],
+  "inputs": [
+    "executable_sample",
+    "script_sample"
+  ],
+  "outputs": [
+    "process_tree",
+    "network_trace",
+    "behavioral_fingerprint"
+  ]
+}
