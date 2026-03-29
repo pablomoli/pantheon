@@ -9,8 +9,8 @@ RUN npm ci
 # Copy source and build
 COPY frontend/ .
 
-# Build-time env — the sandbox URL the browser will connect to
-ARG NEXT_PUBLIC_SANDBOX_URL=http://155.138.218.106:9000
+# Build-time env — the sandbox URL the browser will connect to (override via docker-compose build args).
+ARG NEXT_PUBLIC_SANDBOX_URL=http://127.0.0.1:9000
 ENV NEXT_PUBLIC_SANDBOX_URL=${NEXT_PUBLIC_SANDBOX_URL}
 
 RUN npm run build

@@ -36,6 +36,42 @@ _SUPPRESS_REPORT_EVENTS: ContextVar[bool] = ContextVar(
 )
 
 
+def _resolve_sample_path(file_path: str) -> Path:
+    """Resolve a sample path across host/docker conventions.
+
+    The LLM may sometimes provide container-style paths like ``/samples/...``
+    or stale absolute paths from another workstation. This resolver keeps
+    analysis robust by trying sane local fallbacks.
+    """
+    requested = Path(file_path).expanduser()
+    if requested.exists() and requested.is_file():
+        return requested
+
+    candidates: list[Path] = []
+
+    # Shared sample upload directory used by Hermes.
+    samples_root = Path(os.getenv("SAMPLES_DIR", "/tmp/samples"))
+    if samples_root.exists():
+        candidates.append(samples_root / requested.name)
+        candidates.extend(samples_root.glob(f"**/{requested.name}"))
+
+    # Repo-local malware corpus fallback for demo mode.
+    repo_root = Path(__file__).resolve().parents[2]
+    malware_dir = repo_root / "MALWARE"
+    if malware_dir.exists():
+        candidates.append(malware_dir / requested.name)
+        candidates.append(malware_dir / "6108674530.JS.malicious")
+
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_file():
+            return candidate
+
+    raise FileNotFoundError(
+        f"Sample file not found: {file_path}. "
+        "Upload a file via Hermes or set SAMPLES_DIR to the upload location."
+    )
+
+
 async def submit_sample(file_path: str, analysis_type: str = "both") -> dict[str, str]:
     """Submit a malware sample to the Hephaestus sandbox for analysis.
 
@@ -55,7 +91,7 @@ async def submit_sample(file_path: str, analysis_type: str = "both") -> dict[str
         tool="submit_sample",
         payload={"file_path": file_path, "analysis_type": analysis_type},
     )
-    path = Path(file_path)
+    path = _resolve_sample_path(file_path)
     raw_bytes = path.read_bytes()
     b64 = base64.b64encode(raw_bytes).decode()
     job_id = str(uuid.uuid4())
@@ -227,11 +263,21 @@ async def check_sandbox_health() -> dict[str, Any]:  # Any: health json payload
         tool="check_sandbox_health",
         payload={},
     )
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(f"{_SANDBOX_URL}/sandbox/health")
-        resp.raise_for_status()
-    health = HealthResponse.model_validate(resp.json())
-    health_dict = health.model_dump()
+    health_dict: dict[str, Any]
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{_SANDBOX_URL}/sandbox/health")
+            resp.raise_for_status()
+        health = HealthResponse.model_validate(resp.json())
+        health_dict = health.model_dump()
+    except httpx.HTTPError as exc:
+        err = str(exc).strip() or exc.__class__.__name__
+        health_dict = {
+            "status": "degraded",
+            "docker_available": False,
+            "version": "unknown",
+            "error": err,
+        }
     await emit_event(
         EventType.TOOL_RESULT,
         agent=AgentName.HADES,

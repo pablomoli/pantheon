@@ -56,4 +56,4 @@ async def emit_event(
                 headers={"Content-Type": "application/json"},
             )
     except Exception as exc:
-        logger.debug("event emit failed (non-fatal): %s", exc)
+        logger.warning("event emit failed (non-fatal): %s", exc)
