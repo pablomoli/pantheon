@@ -15,8 +15,10 @@ from __future__ import annotations
 
 from google.adk.agents import Agent
 
-from agents.ares import ares
+from agents.ares_workflow import ares
+from agents.impact_agent import impact_agent
 from agents.model_config import APOLLO_MODEL
+from agents.tools.event_tools import emit_event
 from agents.tools.memory_tools import (
     load_prior_runs,
     store_agent_output,
@@ -39,6 +41,7 @@ ThreatReport dict in context.
 
 ## Your Workflow
 
+0. Call `emit_event` with type=AGENT_ACTIVATED, agent=apollo, payload={"step": "start"}
 1. Call `load_prior_runs` with the job_id and agent_name "apollo" to check for
    prior Apollo work on this job. If prior runs exist, review them and extend
    rather than repeat — build on what was already discovered.
@@ -53,8 +56,18 @@ ThreatReport dict in context.
 7. Call `store_agent_output` with the job_id, agent_name "apollo", your full
    enrichment and report output combined, and temperature 0.3. This stores your
    analysis for synthesis across multiple runs.
-8. Transfer to `ares` — pass the formatted report, enrichment text, and the
-   original ThreatReport dict in your message so Ares can generate response plans.
+8. Call `emit_event` with type=AGENT_COMPLETED, agent=apollo, job_id=job_id,
+   payload={"step": "complete"}.
+9. Call `emit_event` with type=HANDOFF, agent=apollo, job_id=job_id,
+   payload={"from": "apollo", "to": "impact_agent", "protocol": "a2a"}.
+10. Transfer to `impact_agent` — pass the job_id, formatted report, enrichment text,
+    the original ThreatReport dict, and your IOC summary so the remote specialist can
+    assess continuity and outage impact.
+11. When `impact_agent` returns, call `emit_event` with type=HANDOFF, agent=apollo,
+    job_id=job_id, payload={"from": "impact_agent", "to": "ares"}.
+12. Transfer to `ares` — pass the job_id, formatted report, enrichment text, original
+    ThreatReport dict, and the impact analysis so the Ares workflow can assemble one
+    response with both cyber and operational guidance.
 
 ## Rules
 
@@ -90,7 +103,102 @@ them automatically:
 
 **Origin Hint:**
 - If `windows-1251` (Cyrillic Windows codepage) appears in the sample's string
-  constants, note it as a possible Russian-origin C2 infrastructure indicator.
+  constants, it is likely a charset parameter used in the CP437↔Unicode mapping
+  pipeline inside the obfuscation layer — NOT a direct Russian C2 indicator.
+  Flag it as a tooling artifact of the obfuscator, not as confirmed infrastructure
+  attribution.
+
+## Known Campaign IOCs (6108674530.JS.malicious — AsyncRAT Dropper)
+
+This sample has been fully reverse-engineered. When analysing it or a variant,
+include the following confirmed IOCs directly in your report even if the sandbox
+did not surface them:
+
+**Network IOCs:**
+- FTP exfil server: `ftp://ftp.hhautoinvestment.co.tz`
+- FTP email: `cmo@hhautoinvestment.co.tz`
+- IP reputation check: `http://ip-api.com/line/?fields=hosting` (pre-execution
+  sandbox detection; if `hosting=true`, dropper aborts)
+
+**File IOCs:**
+- `C:\Users\Public\Mands.png` — AES-encrypted PowerShell AMSI/ETW bypass chain
+- `C:\Users\Public\Vile.png` — AES-encrypted AsyncRAT .NET assembly
+- `C:\Users\Public\Libraries\` — secondary staging/install directory
+- `C:\Users\Public\6108674530.JS.malici.url` — anti-reinfection marker (not
+  malicious itself; indicates host was already compromised)
+- Install path: `%APPDATA%\eXCXES.exe` (AsyncRAT persisted binary)
+
+**Registry IOCs:**
+- `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\eXCXES` → `eXCXES.exe`
+
+**Cryptographic Material (AES-256-CBC — shared key for both payloads):**
+- Key: `XW/rxEcefeGgLkSZnkuT7xdp4anDC/iUpCgRgENPPto=`
+- IV: `kSkHVO9bPsG2F/4Nq5kUBA==`
+
+**Behavioral Signatures:**
+- Mutex: `eXCXES`
+- Runtime-constructed AMSI target string (never appears statically):
+  `"Ams" + "iSc" + "anBuf" + "fer"` → `AmsiScanBuffer`
+- ETW patch target: `EtwEventWrite` in `ntdll.dll` (overwritten with `ret` opcode)
+- Internal config keys (UTF-32LE, stored as FieldRVA entries in Vile binary):
+  `~draGon~` (offset 0x308) and `~F@7%m$~` (offset 0x328)
+- Secret/config GUID embedded in FieldRVA blob: `72905C47-F4FD-4CF7-A489-4E8121A155BD`
+
+**AsyncRAT Anti-Sandbox DLLs (triggers abort if present):**
+`cmdvrt32.dll`, `snxhk.dll`, `SbieDll.dll`, `Sf2.dll`, `SxIn.dll`
+
+**C2 host/port:** Still encrypted in the AsyncRAT Settings class binary.
+FakeNet-NG on the Windows VPS will capture the outbound C2 connection attempt
+as the only reliable path to recover the host and port.
+
+## AsyncRAT Credential Theft Targets (statically extracted from Vile binary)
+
+When the malware family is identified as AsyncRAT (or this specific sample), always
+include the following confirmed credential theft targets in your report. These were
+extracted directly from the `.NET` `#US` string heap and PE string table of the
+decrypted `Vile` payload — they are NOT inferred, they are confirmed.
+
+**Browsers (steals saved passwords, cookies, autofill):**
+- Google Chrome — `\Default\Login Data` (SQLite)
+- Microsoft Edge — `\Microsoft\Edge\User Data`
+- Brave — `\BraveSoftware\Brave-Browser\User Data`
+- Firefox / Mozilla — `\Mozilla\Firefox\` + `signons.sqlite`, `key3.db`, `key4.db`
+- Opera — `\Opera Software\Opera Stable` + `browsedata.db`, `wand.dat` (Opera Mail)
+- ChromePlus (MapleStudio), 360Chrome
+
+**Email clients:**
+- Microsoft Outlook — `HKCU\Software\Microsoft\Office\11.0-16.0\Outlook\Profiles`
+- Mozilla Thunderbird — `signons.sqlite`, `global-messages-db.sqlite`
+- Opera Mail — `wand.dat`
+- Mailbird — `Store\Store.db`
+
+**FTP clients (steals saved server credentials):**
+- FileZilla — `\FileZilla\recentservers.xml`
+- WS_FTP / WS_FTP Pro — `\Ipswitch\WS_FTP\Sites\ws_ftp.ini`
+- FTP Commander / FTP Commander Deluxe — `Ftplist.txt`
+- FTP Navigator — `Ftplist.txt`
+- CoreFTP — `\SOFTWARE\FTPWare\COREFTP\Sites`
+- FTPGetter — `\FTPGetter\servers.xml`
+- SmartFTP — `\SmartFTP\Client 2.0\Favorites\Quick Connect`
+- cftp — `\cftp\Ftplist.txt`
+
+**System credential stores:**
+- Windows Credential Manager — walks all vault types: Web Credentials,
+  Windows Credentials, Domain Password Credential, Certificate Credential,
+  Domain Certificate Credential, Extended Credential
+- TightVNC — `ControlPassword` registry value
+
+**Messaging / tokens:**
+- Discord — token theft from all three channels: stable, canary (discordcanary),
+  PTB (discordptb) via `discord.com` local storage
+
+**Password managers:**
+- 3Password
+- DownloadManager password store
+
+Always list these targets explicitly in the "Credential Theft Scope" section of
+your report so the analyst knows exactly which applications and accounts to treat
+as compromised on any infected host.
 """
 
 apollo: Agent = Agent(
@@ -112,6 +220,7 @@ apollo: Agent = Agent(
         load_prior_runs,
         store_agent_output,
         synthesize_prior_runs,
+        emit_event,
     ],
-    sub_agents=[ares],
+    sub_agents=[impact_agent, ares],
 )

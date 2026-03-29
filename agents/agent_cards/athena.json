@@ -1,0 +1,9 @@
+{
+  "name": "Athena",
+  "role": "Static Analysis",
+  "description": "The goddess of wisdom. Athena dissects raw malware code, deobfuscates script arrays, and extracts hardcoded configurations with surgical precision.",
+  "icon": "🦉",
+  "capabilities": ["deobfuscation", "pattern_matching", "static_signatures"],
+  "inputs": ["vbs_file", "js_file", "powershell_script"],
+  "outputs": ["obfuscation_report", "extracted_config"]
+}

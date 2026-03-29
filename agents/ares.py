@@ -18,6 +18,7 @@ from __future__ import annotations
 from google.adk.agents import Agent
 
 from agents.model_config import ARES_MODEL
+from agents.tools.event_tools import emit_event
 from agents.tools.memory_tools import (
     load_prior_runs,
     store_agent_output,
@@ -39,6 +40,7 @@ with three structured plans that a security team can act on immediately.
 
 ## Your Workflow
 
+0. Call `emit_event` with type=AGENT_ACTIVATED, agent=ares, payload={"step": "start"}
 1. Call `load_prior_runs` with the job_id and agent_name "ares" to check for
    prior Ares plans on this job.
    - If 2 or more prior runs exist, call `synthesize_prior_runs` to get the
@@ -55,7 +57,10 @@ with three structured plans that a security team can act on immediately.
 7. Call `store_agent_output` with the job_id, agent_name "ares", the full
    assembled incident report, and temperature 0.3. This enables synthesis on
    future runs.
-8. Return the assembled markdown document as your final response.
+8. Call `emit_event` with type=AGENT_COMPLETED, agent=ares, job_id=job_id,
+   payload={"step": "complete"}. Then call `emit_event` with type=HANDOFF,
+   agent=ares, job_id=job_id, payload={"from": "ares", "to": "zeus"}.
+9. Return the assembled markdown document as your final response to Zeus.
 
 ## Rules
 
@@ -127,5 +132,6 @@ ares: Agent = Agent(
         load_prior_runs,
         store_agent_output,
         synthesize_prior_runs,
+        emit_event,
     ],
 )

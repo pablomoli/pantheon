@@ -6,12 +6,17 @@ import logging
 import docker
 import docker.errors
 from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import asyncio
 
 from sandbox.analyzer import Analyzer
 from sandbox.events import bus
 from sandbox.models import (
+    AgentName,
     AnalyzeRequest,
     AnalyzeResponse,
+    EventType,
     HealthResponse,
     IOCReport,
     MemoryEntry,
@@ -28,10 +33,35 @@ logging.basicConfig(
 )
 logger = logging.getLogger("hephaestus")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from agents.artemis import Artemis
+    from agents.worker import _on_new_sample, swarm_worker_loop
+
+    artemis_daemon = Artemis(on_new_sample=_on_new_sample)
+    
+    # Start the background tasks
+    artemis_task = asyncio.create_task(artemis_daemon.run())
+    worker_task = asyncio.create_task(swarm_worker_loop())
+    
+    yield
+    
+    # Cancel tasks on shutdown
+    artemis_task.cancel()
+    worker_task.cancel()
+
 app = FastAPI(
     title="Hephaestus",
     description="Pantheon malware sandbox service",
     version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 _analyzer = Analyzer()
@@ -117,3 +147,16 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 async def receive_event(event: PantheonEvent) -> None:
     """Accept an event from any agent and broadcast it to all /ws subscribers."""
     bus.publish(event)
+
+
+@app.post("/sandbox/agents/{agent_name}/command", status_code=204)
+async def agent_command(agent_name: AgentName, command: str, job_id: str | None = None) -> None:
+    """Send a control command to a specific agent."""
+    event = PantheonEvent(
+        type=EventType.AGENT_COMMAND,
+        agent=agent_name,
+        job_id=job_id,
+        payload={"command": command},
+    )
+    bus.publish(event)
+    logger.info("Control command '%s' sent to agent %s", command, agent_name)

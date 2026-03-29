@@ -1,0 +1,20 @@
+{
+  "name": "Apollo",
+  "role": "IOC Enrichment",
+  "description": "The God of Light and Truth. Apollo takes raw signals from Hades and Athena, identifies Indicators of Compromise, and enriches them with global threat intelligence.",
+  "icon": "\u2600\ufe0f",
+  "capabilities": [
+    "threat_intel_enrichment",
+    "ioc_extraction",
+    "contextual_analysis"
+  ],
+  "inputs": [
+    "raw_events",
+    "ip_list",
+    "domain_list"
+  ],
+  "outputs": [
+    "enriched_iocs",
+    "threat_context_summary"
+  ]
+}

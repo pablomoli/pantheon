@@ -114,7 +114,7 @@ async def tool_analyze(body: dict[str, Any]) -> JSONResponse:
     file_b64 = base64.b64encode(sample_path.read_bytes()).decode()
 
     # Try to forward to the sandbox service if it's running.
-    sandbox_url = os.getenv("SANDBOX_URL", "http://localhost:9090")
+    sandbox_url = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
     try:
         import httpx
 
@@ -164,7 +164,7 @@ async def tool_report(body: dict[str, Any]) -> JSONResponse:
     params = body.get("parameters", body)
     job_id = params.get("job_id", "")
 
-    sandbox_url = os.getenv("SANDBOX_URL", "http://localhost:9090")
+    sandbox_url = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
     try:
         import httpx
 
@@ -183,7 +183,7 @@ async def tool_report(body: dict[str, Any]) -> JSONResponse:
 @app.post("/api/tools/status")
 async def tool_status(body: dict[str, Any]) -> JSONResponse:
     """Webhook: check if the sandbox is healthy and ready."""
-    sandbox_url = os.getenv("SANDBOX_URL", "http://localhost:9090")
+    sandbox_url = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
     try:
         import httpx
 

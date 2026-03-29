@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend Dashboard
 
-## Getting Started
+This is the real-time Pantheon dashboard built with Next.js, Tailwind, and React Flow.
 
-First, run the development server:
+It visualizes the malware-analysis swarm by consuming the live event stream from Hephaestus (`/ws`) and rendering:
+
+- agent activation/completion states
+- inter-agent handoffs
+- tool activity
+- attack-chain progression
+- process and IOC telemetry
+
+## Core Architecture
+
+The dashboard follows an event-first model.
+
+1. WebSocket client receives `PantheonEvent` messages from sandbox.
+2. Events are normalized and stored in a shared state store.
+3. UI components subscribe to slices of state and render live updates.
+
+No dashboard panel should rely on polling REST snapshots as primary source of truth.
+
+## Important Paths
+
+- `src/lib/pantheon-ws.ts`: WebSocket connection and event ingestion
+- `src/lib/event-store.ts`: shared event-driven state
+- `src/components/`: dashboard visual components (graph, feed, attack chain, IOC views)
+- `src/app/`: Next.js app routes/pages
+
+Additional notes are in:
+
+- `README_DASHBOARD.md`
+- `SETUP.md`
+
+## Environment
+
+Set sandbox endpoint for local/prod:
+
+- `SANDBOX_API_URL`
+
+Examples:
+
+- local: `http://localhost:9000`
+- production: your deployed sandbox base URL
+
+## Local Development
+
+From this folder:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build And Validate
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+```
 
-## Learn More
+## Dashboard Implementation Goals
 
-To learn more about Next.js, take a look at the following resources:
+- Keep all major panels wired to event-store state.
+- Make node and edge transitions reflect real event timing.
+- Keep event feed readable under high event volume.
+- Ensure layout remains usable on desktop and mobile.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Integration Contract
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The event schema is defined by backend Pydantic models in `../sandbox/models.py`.
 
-## Deploy on Vercel
+When backend event shapes change:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. update parsing in `src/lib/pantheon-ws.ts`
+2. update state transforms in `src/lib/event-store.ts`
+3. adjust component renderers accordingly

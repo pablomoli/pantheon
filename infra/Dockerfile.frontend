@@ -1,0 +1,31 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install dependencies first (cache layer)
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+# Copy source and build
+COPY frontend/ .
+
+# Build-time env — the sandbox URL the browser will connect to
+ARG NEXT_PUBLIC_SANDBOX_URL=http://155.138.218.106:9000
+ENV NEXT_PUBLIC_SANDBOX_URL=${NEXT_PUBLIC_SANDBOX_URL}
+
+RUN npm run build
+
+# Production stage — lightweight Node.js server
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Copy standalone server output
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+EXPOSE 3000
+CMD ["node", "server.js"]

@@ -1,0 +1,59 @@
+{
+  "name": "Hades",
+  "role": "Dynamic Execution",
+  "description": "The Lord of the Underworld. Hades detonates malware samples in isolated environments, intercepts process calls, and reveals the hidden network behaviors of any threat.",
+  "icon": "💀",
+  "capabilities": ["sandbox_detonation", "process_monitoring", "behavioral_analysis"],
+  "inputs": ["executable_sample", "script_sample"],
+  "outputs": ["process_tree", "network_trace", "behavioral_fingerprint"]
+}
+<!-- slide -->
+{
+  "name": "Apollo",
+  "role": "IOC Enrichment",
+  "description": "The God of Light and Truth. Apollo takes raw signals from Hades and Athena, identifies Indicators of Compromise, and enriches them with global threat intelligence.",
+  "icon": "☀️",
+  "capabilities": ["threat_intel_enrichment", "ioc_extraction", "contextual_analysis"],
+  "inputs": ["raw_events", "ip_list", "domain_list"],
+  "outputs": ["enriched_iocs", "threat_context_summary"]
+}
+<!-- slide -->
+{
+  "name": "Ares",
+  "role": "Containment",
+  "description": "The God of War. Ares prepares the battlefield for defense, generating containment playbooks, remediation steps, and YARA/Sigma rules for immediate response.",
+  "icon": "⚔️",
+  "capabilities": ["incident_response", "remediation_planning", "signature_generation"],
+  "inputs": ["threat_report", "enriched_iocs"],
+  "outputs": ["containment_plan", "remediation_plan", "detection_signatures"]
+}
+<!-- slide -->
+{
+  "name": "Hermes",
+  "role": "Gateway & Delivery",
+  "description": "The Messenger God. Hermes delivers critical alerts to analysts via Telegram and voice, ensuring zero-latency awareness of active incidents.",
+  "icon": "🌊",
+  "capabilities": ["alerting", "telegram_gateway", "vocal_briefing"],
+  "inputs": ["incident_summary", "analyst_pings"],
+  "outputs": ["delivery_confirmation", "session_metrics"]
+}
+<!-- slide -->
+{
+  "name": "Hephaestus",
+  "role": "Sandbox Forge",
+  "description": "The Divine Blacksmith. Hephaestus constructs the airtight Docker environments where Hades performs his investigations.",
+  "icon": "⚙️",
+  "capabilities": ["resource_provisioning", "docker_isolation", "api_gateway"],
+  "inputs": ["provision_request"],
+  "outputs": ["sandbox_health", "api_endpoints"]
+}
+<!-- slide -->
+{
+  "name": "Artemis",
+  "role": "Sentinel Daemon",
+  "description": "The Goddess of the Hunt. Artemis silently monitors filesystem watchdirs, hunting for new malware uploads to trigger the Pantheon pipeline.",
+  "icon": "🏹",
+  "capabilities": ["file_monitoring", "automaton_triggering", "alert_initialization"],
+  "inputs": ["watch_directory"],
+  "outputs": ["new_sample_event"]
+}

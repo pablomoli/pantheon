@@ -57,11 +57,32 @@ def _ssh_connect() -> paramiko.SSHClient:
     return client
 
 
-def _exec(ssh: paramiko.SSHClient, command: str, timeout: int = 60) -> tuple[str, str]:
+async def _exec(ssh: paramiko.SSHClient, command: str, timeout: int = 60) -> tuple[str, str]:
     """Run a command over SSH and return (stdout, stderr)."""
+    # Emit telemetry event
+    await emit_event(
+        EventType.TELEMETRY,
+        agent=AgentName.HADES,
+        payload={"command": command, "stream": "stdin"},
+    )
+    
     _, stdout, stderr = ssh.exec_command(command, timeout=timeout)
     out = stdout.read().decode(errors="replace")
     err = stderr.read().decode(errors="replace")
+    
+    if out:
+        await emit_event(
+            EventType.TELEMETRY,
+            agent=AgentName.HADES,
+            payload={"output": out, "stream": "stdout"},
+        )
+    if err:
+        await emit_event(
+            EventType.TELEMETRY,
+            agent=AgentName.HADES,
+            payload={"output": err, "stream": "stderr"},
+        )
+        
     return out, err
 
 
@@ -182,22 +203,22 @@ async def detonate_sample(sample_path: str) -> dict[str, Any]:  # Any: Detonatio
 
         # Start FakeNet-NG in a background process
         # VALIDATE: confirm FakeNet path and Python availability on VPS
-        _exec(ssh, f"start /B python {_FAKENET_PATH} -l {_FAKENET_LOG}", timeout=5)
+        await _exec(ssh, f"start /B python {_FAKENET_PATH} -l {_FAKENET_LOG}", timeout=5)
         time.sleep(2)
 
         # Start Procmon capture
         # VALIDATE: confirm Procmon path on VPS
-        _exec(ssh, f"{_PROCMON_PATH} /AcceptEula /Quiet /Minimized /BackingFile {_CAPTURE_PML}")
+        await _exec(ssh, f"{_PROCMON_PATH} /AcceptEula /Quiet /Minimized /BackingFile {_CAPTURE_PML}")
         time.sleep(1)
 
         # Detonate
-        _exec(ssh, f"wscript.exe {remote_sample}", timeout=_DETONATION_TIMEOUT + 5)
+        await _exec(ssh, f"wscript.exe {remote_sample}", timeout=_DETONATION_TIMEOUT + 5)
         time.sleep(5)
 
         # Stop Procmon and export CSV
-        _exec(ssh, f"{_PROCMON_PATH} /Terminate")
+        await _exec(ssh, f"{_PROCMON_PATH} /Terminate")
         time.sleep(2)
-        _exec(ssh, f"{_PROCMON_PATH} /OpenLog {_CAPTURE_PML} /SaveAs {_CAPTURE_CSV}")
+        await _exec(ssh, f"{_PROCMON_PATH} /OpenLog {_CAPTURE_PML} /SaveAs {_CAPTURE_CSV}")
         time.sleep(3)
 
         sftp = ssh.open_sftp()
