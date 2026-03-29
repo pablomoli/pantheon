@@ -102,7 +102,7 @@ async def test_synthesize_returns_not_enough_if_one_run() -> None:
 
 
 @pytest.mark.asyncio
-async def test_synthesize_calls_gemini_and_stores_result() -> None:
+async def test_synthesize_calls_openrouter_and_stores_result() -> None:
     from agents.tools.memory_tools import synthesize_prior_runs
 
     two_runs = [
@@ -110,21 +110,15 @@ async def test_synthesize_calls_gemini_and_stores_result() -> None:
         {"run_number": 2, "temperature": 0.6, "output": "containment plan v2 with extras"},
     ]
 
-    mock_gemini_response = MagicMock()
-    mock_gemini_response.text = "synthesized consensus plan"
-
-    mock_client_instance = MagicMock()
-    mock_client_instance.aio.models.generate_content = AsyncMock(
-        return_value=mock_gemini_response
-    )
+    mock_chat = AsyncMock(return_value="synthesized consensus plan")
 
     with patch("agents.tools.memory_tools.load_prior_runs", AsyncMock(return_value=two_runs)), \
          patch("agents.tools.memory_tools.store_agent_output", AsyncMock(return_value={"run_number": 3, "total_runs": 3})), \
-         patch("agents.tools.memory_tools.get_genai_client", return_value=mock_client_instance):
+         patch("agents.tools.memory_tools.openrouter_chat", mock_chat):
         result = await synthesize_prior_runs("job1", "ares")
 
     assert result == "synthesized consensus plan"
-    mock_client_instance.aio.models.generate_content.assert_called_once()
+    mock_chat.assert_called_once()
 
 
 # --- find_similar_jobs ------------------------------------------------------

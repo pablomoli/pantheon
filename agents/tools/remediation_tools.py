@@ -1,4 +1,4 @@
-"""Gemini-powered containment, remediation, and prevention plan tools for Ares.
+"""LLM-powered containment, remediation, and prevention plan tools for Ares.
 
 Each tool takes a structured threat summary and returns an actionable plan as a
 markdown string. These are designed to be called by the Ares ADK agent.
@@ -8,9 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from google.genai import types as genai_types
-
-from agents.model_config import FLASH_MODEL, get_genai_client
+from agents.model_config import FLASH_MODEL, MAX_OUTPUT_TOKENS_FLASH
+from agents.openrouter_client import openrouter_chat
 from agents.tools.event_tools import emit_event
 from sandbox.models import AgentName, EventType
 
@@ -83,17 +82,14 @@ def _workflow_payload(
 
 
 async def _generate(prompt: str) -> str:
-    """Send *prompt* to Gemini and return the text response."""
-    client = get_genai_client()
-    response = await client.aio.models.generate_content(
+    """Send *prompt* to OpenRouter and return the text response."""
+    text = await openrouter_chat(
         model=_MODEL,
-        contents=prompt,
-        config=genai_types.GenerateContentConfig(
-            temperature=0.3,
-            max_output_tokens=2048,
-        ),
+        user_prompt=prompt,
+        temperature=0.3,
+        max_tokens=min(2048, MAX_OUTPUT_TOKENS_FLASH),
     )
-    return response.text or "(no plan generated)"
+    return text or "(no plan generated)"
 
 
 async def generate_containment_plan(
@@ -104,7 +100,7 @@ async def generate_containment_plan(
 ) -> str:
     """Generate an immediate containment plan for the detected threat.
 
-    Uses Gemini to produce numbered, urgency-labelled containment steps
+    Produces numbered, urgency-labelled containment steps
     (network isolation, process termination, firewall rules, etc.).
 
     Args:
@@ -147,7 +143,7 @@ async def generate_remediation_plan(
 ) -> str:
     """Generate a full remediation plan to eradicate the malware.
 
-    Uses Gemini to produce numbered steps covering file removal, registry
+    Produces numbered steps covering file removal, registry
     cleanup, credential rotation, patching, and verification.
 
     Args:
@@ -187,7 +183,7 @@ async def generate_prevention_plan(
 ) -> str:
     """Generate a long-term prevention plan tailored to the threat class.
 
-    Uses Gemini to produce recommendations including EDR tuning, detection
+    Produces recommendations including EDR tuning, detection
     rules (YARA/Sigma), network segmentation, and monitoring improvements.
 
     Args:

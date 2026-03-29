@@ -16,7 +16,7 @@ from __future__ import annotations
 from google.adk.agents import Agent
 
 from agents.apollo import apollo
-from agents.model_config import HADES_MODEL
+from agents.model_config import HADES_MODEL, litellm_for
 from agents.tools.event_tools import emit_event
 from agents.tools.memory_tools import (
     find_similar_jobs,
@@ -149,7 +149,7 @@ the sandbox/VPS evidence:
 
 hades: Agent = Agent(
     name="hades",
-    model=HADES_MODEL,
+    model=litellm_for(HADES_MODEL),
     description=(
         "Malware analysis agent. Submits samples to the Hephaestus sandbox, "
         "polls for results, and interprets the ThreatReport in plain language "

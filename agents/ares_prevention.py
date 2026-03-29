@@ -10,7 +10,7 @@ from agents.ares_workflow_support import (
     get_planning_summary,
     get_workflow_context,
 )
-from agents.model_config import ARES_MODEL
+from agents.model_config import ARES_MODEL, litellm_for
 from agents.tools.remediation_tools import generate_prevention_plan
 from sandbox.models import EventType
 
@@ -46,7 +46,7 @@ async def _after_agent(callback_context: CallbackContext) -> None:
 
 ares_prevention = Agent(
     name="ares_prevention",
-    model=ARES_MODEL,
+    model=litellm_for(ARES_MODEL),
     description="Generates the prevention branch of the Ares response plan.",
     instruction=(
         "Call `run_prevention_branch` exactly once and return only the plan it returns."

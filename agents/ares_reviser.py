@@ -14,7 +14,7 @@ from agents.ares_workflow_support import (
     get_refinement_iteration,
     get_workflow_context,
 )
-from agents.model_config import ARES_MODEL
+from agents.model_config import ARES_MODEL, litellm_for
 from sandbox.models import EventType
 
 
@@ -82,7 +82,7 @@ async def _after_agent(callback_context: CallbackContext) -> None:
 
 ares_reviser = Agent(
     name="ares_reviser",
-    model=ARES_MODEL,
+    model=litellm_for(ARES_MODEL),
     description="Revises Ares plan sections based on verifier findings.",
     instruction=_revision_instruction,
     output_schema=AresPlanSet,

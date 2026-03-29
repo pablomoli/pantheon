@@ -38,8 +38,8 @@ async def test_transcribe_returns_text() -> None:
 
 
 @patch.dict("os.environ", {"ELEVENLABS_API_KEY": "fake-key"})
-async def test_transcribe_empty_text_falls_back_to_gemini() -> None:
-    """When ElevenLabs returns empty text, Gemini fallback is tried."""
+async def test_transcribe_empty_text_falls_back_to_openrouter() -> None:
+    """When ElevenLabs returns empty text, OpenRouter fallback is tried."""
     mock_response = MagicMock()
     mock_response.json.return_value = {"text": ""}
     mock_response.raise_for_status = MagicMock()
@@ -51,16 +51,16 @@ async def test_transcribe_empty_text_falls_back_to_gemini() -> None:
 
     with patch("voice.client.httpx.AsyncClient", return_value=mock_client):
         with patch(
-            "voice.client._transcribe_gemini",
-            AsyncMock(return_value="gemini result"),
+            "voice.client._transcribe_openrouter",
+            AsyncMock(return_value="openrouter result"),
         ):
             text = await voice_client.transcribe(b"fake-audio")
-    assert text == "gemini result"
+    assert text == "openrouter result"
 
 
 @patch.dict("os.environ", {"ELEVENLABS_API_KEY": "fake-key"})
 async def test_transcribe_both_fail_raises() -> None:
-    """When both ElevenLabs and Gemini fail, TranscriptionError is raised."""
+    """When both ElevenLabs and OpenRouter fail, TranscriptionError is raised."""
     mock_client = AsyncMock()
     mock_client.post = AsyncMock(side_effect=RuntimeError("API down"))
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -68,8 +68,8 @@ async def test_transcribe_both_fail_raises() -> None:
 
     with patch("voice.client.httpx.AsyncClient", return_value=mock_client):
         with patch(
-            "voice.client._transcribe_gemini",
-            AsyncMock(side_effect=RuntimeError("Gemini down")),
+            "voice.client._transcribe_openrouter",
+            AsyncMock(side_effect=RuntimeError("OpenRouter down")),
         ):
             with pytest.raises(TranscriptionError, match="Transcription failed"):
                 await voice_client.transcribe(b"fake-audio")

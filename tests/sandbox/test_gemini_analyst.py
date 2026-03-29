@@ -25,7 +25,7 @@ def mock_gemini_response() -> str:
 @pytest.mark.asyncio()
 async def test_analyze_returns_threat_report(mock_gemini_response: str) -> None:
     analyst = GeminiAnalyst(api_key="test-key")
-    with patch.object(analyst, "_call_gemini", new_callable=AsyncMock, return_value=mock_gemini_response):
+    with patch.object(analyst, "_call_llm", new_callable=AsyncMock, return_value=mock_gemini_response):
         report = await analyst.analyze(summary_text="WScript.Shell http://evil.com/payload.exe")
     assert report.malware_type == "WSH dropper"
     assert report.risk_level == "critical"
@@ -35,7 +35,7 @@ async def test_analyze_returns_threat_report(mock_gemini_response: str) -> None:
 @pytest.mark.asyncio()
 async def test_analyze_handles_malformed_json(mock_gemini_response: str) -> None:
     analyst = GeminiAnalyst(api_key="test-key")
-    with patch.object(analyst, "_call_gemini", new_callable=AsyncMock, return_value="not valid json"):
+    with patch.object(analyst, "_call_llm", new_callable=AsyncMock, return_value="not valid json"):
         report = await analyst.analyze(summary_text="some strings")
     # Should return a default report rather than raising
     assert report.malware_type  # non-empty fallback
@@ -57,7 +57,7 @@ async def test_analyze_sanitizes_bare_backslashes() -> None:
       "remediation_hints": ["Remove registry key"]
     }"""
     analyst = GeminiAnalyst(api_key="test-key")
-    with patch.object(analyst, "_call_gemini", new_callable=AsyncMock, return_value=raw_with_backslashes):
+    with patch.object(analyst, "_call_llm", new_callable=AsyncMock, return_value=raw_with_backslashes):
         report = await analyst.analyze(summary_text="WScript.Shell")
     assert report.malware_type == "WSH dropper"
     assert report.risk_level == "high"

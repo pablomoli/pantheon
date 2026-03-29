@@ -4,7 +4,7 @@ These tools allow agents (Hades, Apollo, Ares) to persist their outputs across
 runs and synthesize improvements over time. Each call to the sandbox memory
 endpoints appends a new run — nothing is ever overwritten.
 
-The synthesis tool calls Gemini to distill multiple prior runs into a single
+The synthesis tool calls the LLM to distill multiple prior runs into a single
 consensus output that is stronger than any individual run.
 """
 
@@ -14,9 +14,9 @@ import os
 from typing import Any
 
 import httpx
-from google.genai import types as genai_types
 
-from agents.model_config import FLASH_MODEL, get_genai_client
+from agents.model_config import FLASH_MODEL, MAX_OUTPUT_TOKENS_FLASH
+from agents.openrouter_client import openrouter_chat
 from agents.tools.event_tools import emit_event
 from sandbox.models import AgentName, EventType
 
@@ -27,7 +27,7 @@ _SYNTHESIS_PROMPT = """\
 You are synthesizing {n} analysis runs produced by the "{agent_name}" agent for \
 malware job {job_id}.
 
-Each run used a different Gemini temperature for diversity — lower temperatures \
+Each run used a different temperature for diversity — lower temperatures \
 are more conservative and factual, higher temperatures surface edge cases and \
 alternative interpretations.
 
@@ -134,10 +134,10 @@ async def synthesize_prior_runs(
     job_id: str,
     agent_name: str,
 ) -> str:
-    """Synthesize all prior runs into a consensus output using Gemini.
+    """Synthesize all prior runs into a consensus output using the LLM.
 
     Loads all stored runs for this (job_id, agent_name) pair, builds a
-    synthesis prompt, and calls Gemini at temperature=0.0 to distill the
+    synthesis prompt, and calls OpenRouter at temperature=0.0 to distill the
     strongest version. The synthesis is stored as a new run automatically.
 
     Returns ``"(not enough runs to synthesize)"`` if fewer than 2 runs exist.
@@ -184,16 +184,14 @@ async def synthesize_prior_runs(
         runs_block=runs_block,
     )
 
-    client = get_genai_client()
-    response = await client.aio.models.generate_content(
+    synthesis = await openrouter_chat(
         model=_MODEL,
-        contents=prompt,
-        config=genai_types.GenerateContentConfig(
-            temperature=0.0,
-            max_output_tokens=4096,
-        ),
+        user_prompt=prompt,
+        temperature=0.0,
+        max_tokens=min(4096, MAX_OUTPUT_TOKENS_FLASH),
     )
-    synthesis = response.text or "(synthesis produced no output)"
+    if not synthesis:
+        synthesis = "(synthesis produced no output)"
 
     # Store the synthesis as the next run so it builds on itself over time
     await store_agent_output(job_id, agent_name, synthesis, temperature=0.0)

@@ -1,4 +1,4 @@
-"""Report formatting and Gemini-powered IOC enrichment tools for Apollo.
+"""Report formatting and LLM-powered IOC enrichment tools for Apollo.
 
 These tools turn raw ThreatReport / IOCReport dicts into structured, human-
 readable output that the LLM can include in the final incident report.
@@ -9,9 +9,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from google.genai import types as genai_types
-
-from agents.model_config import FLASH_MODEL, get_genai_client
+from agents.model_config import FLASH_MODEL, MAX_OUTPUT_TOKENS_FLASH
+from agents.openrouter_client import openrouter_chat
 from agents.tools.event_tools import emit_event
 from sandbox.models import AgentName, EventType
 
@@ -19,9 +18,9 @@ _MODEL: str = FLASH_MODEL
 
 
 async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
-    """Use Gemini to enrich a raw IOCReport with threat intelligence context.
+    """Enrich a raw IOCReport with threat intelligence context via OpenRouter.
 
-    Takes a JSON string of an IOCReport dict and asks Gemini to research each
+    Takes a JSON string of an IOCReport dict and asks the model to research each
     indicator, identify known threat actor or malware family associations, and
     summarise the findings in plain language.
 
@@ -30,7 +29,7 @@ async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
             dict returned by :func:`~agents.tools.sandbox_tools.get_iocs`).
 
     Returns:
-        Plain-text threat intelligence enrichment from Gemini (markdown).
+        Plain-text threat intelligence enrichment (markdown).
     """
     await emit_event(
         EventType.TOOL_CALLED,
@@ -38,7 +37,6 @@ async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
         tool="enrich_iocs_with_threat_intel",
         payload={"ioc_report_length": len(ioc_report_json)},
     )
-    client = get_genai_client()
     prompt = (
         "You are a threat intelligence analyst. Below is a set of indicators of "
         "compromise (IOCs) extracted from a malware sample.\n\n"
@@ -49,15 +47,14 @@ async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
         "Be specific, technical, and concise. Format as structured markdown.\n\n"
         f"IOC Report:\n```json\n{ioc_report_json}\n```"
     )
-    response = await client.aio.models.generate_content(
+    result = await openrouter_chat(
         model=_MODEL,
-        contents=prompt,
-        config=genai_types.GenerateContentConfig(
-            temperature=0.2,
-            max_output_tokens=2048,
-        ),
+        user_prompt=prompt,
+        temperature=0.2,
+        max_tokens=min(2048, MAX_OUTPUT_TOKENS_FLASH),
     )
-    result = response.text or "(no enrichment generated)"
+    if not result:
+        result = "(no enrichment generated)"
     await emit_event(
         EventType.TOOL_RESULT,
         agent=AgentName.APOLLO,

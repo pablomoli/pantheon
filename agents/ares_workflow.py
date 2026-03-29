@@ -14,7 +14,7 @@ from agents.ares_workflow_support import (
     AresWorkflowContext,
     emit_workflow_event,
 )
-from agents.model_config import ARES_MODEL
+from agents.model_config import ARES_MODEL, litellm_for
 from agents.tools.memory_tools import load_prior_runs, synthesize_prior_runs
 from agents.tools.remediation_tools import extract_threat_summary_for_ares
 from sandbox.models import EventType
@@ -84,7 +84,7 @@ async def _after_preparer(callback_context: CallbackContext) -> None:
 
 ares_context_preparer = Agent(
     name="ares_context_preparer",
-    model=ARES_MODEL,
+    model=litellm_for(ARES_MODEL),
     description="Extracts and normalizes Apollo handoff context for the Ares workflow.",
     instruction=_PREPARER_INSTRUCTION,
     tools=[

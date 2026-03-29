@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from google.adk.agents import Agent
 
 from agents.hades import hades
-from agents.model_config import ATHENA_MODEL
+from agents.model_config import ATHENA_MODEL, litellm_for
 from agents.tools.event_tools import emit_event
 
 _MALWARE_SIGNALS = [
@@ -92,7 +92,7 @@ def create_incident_ticket(
 
 athena = Agent(
     name="athena",
-    model=ATHENA_MODEL,
+    model=litellm_for(ATHENA_MODEL),
     instruction="""You are Athena, the triage specialist in the Pantheon incident response system.
 
 YOUR JOB:

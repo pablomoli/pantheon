@@ -13,7 +13,6 @@ import re
 
 from google.adk.runners import Runner
 from google.genai import types
-from google.genai.errors import ClientError
 
 from gateway.session import APP_NAME, create_or_get_session, get_session_service
 
@@ -156,10 +155,22 @@ async def get_zeus_response(user_id: str, text: str) -> str:
 
 _STRICT_ADK_FAILURE_MESSAGE = (
     "Pantheon analysis did not finish: the ADK swarm returned no response or hit an error. "
-    "Verify AI credentials (GOOGLE_API_KEY / GEMINI_API, or Vertex: GOOGLE_GENAI_USE_VERTEXAI "
-    "and GOOGLE_CLOUD_PROJECT), SANDBOX_API_URL, and that Hephaestus is running; "
+    "Verify OPENROUTER_API_KEY, SANDBOX_API_URL, and that Hephaestus is running; "
     "then send /reset and try again."
 )
+
+
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    """True when *exc* indicates OpenRouter / LiteLLM quota exhaustion."""
+    try:
+        from openai import RateLimitError
+
+        if isinstance(exc, RateLimitError):
+            return True
+    except ImportError:
+        pass
+    text = str(exc).lower()
+    return "429" in text or "rate limit" in text or "resource exhausted" in text
 
 
 def _requires_strict_adk_only(text: str, *, force_adk: bool) -> bool:
@@ -195,20 +206,17 @@ async def get_agent_response(user_id: str, text: str, *, force_adk: bool = False
                 return response
             logger.warning("ADK pipeline returned empty for user %s", user_id)
             break
-        except ClientError as exc:
-            if exc.code == 429 and attempt == 0:
+        except Exception as exc:
+            if _is_rate_limit_error(exc) and attempt == 0:
                 # Extract retry delay suggested by the API (default 40 s).
                 match = re.search(r"retry in (\d+)", str(exc), re.IGNORECASE)
                 wait = int(match.group(1)) + 2 if match else 40
                 logger.warning(
-                    "ADK pipeline hit Gemini quota (429) for user %s — retrying in %ds",
+                    "ADK pipeline hit model quota (429) for user %s — retrying in %ds",
                     user_id, wait,
                 )
                 await asyncio.sleep(wait)
                 continue
-            logger.exception("ADK pipeline failed for user %s", user_id)
-            break
-        except Exception:
             logger.exception("ADK pipeline failed for user %s", user_id)
             break
 

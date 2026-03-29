@@ -13,7 +13,7 @@ from agents.ares_workflow_support import (
     get_workflow_context,
     increment_refinement_iteration,
 )
-from agents.model_config import ARES_MODEL
+from agents.model_config import ARES_MODEL, litellm_for
 from sandbox.models import EventType
 
 
@@ -79,7 +79,7 @@ async def _after_agent(callback_context: CallbackContext) -> None:
 
 ares_verifier = Agent(
     name="ares_verifier",
-    model=ARES_MODEL,
+    model=litellm_for(ARES_MODEL),
     description="Checks whether the Ares plans are specific, complete, and evidence-backed.",
     instruction=_verification_instruction,
     output_schema=AresVerificationResult,

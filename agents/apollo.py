@@ -17,7 +17,7 @@ from google.adk.agents import Agent
 
 from agents.ares_workflow import ares
 from agents.impact_agent import impact_agent
-from agents.model_config import APOLLO_MODEL
+from agents.model_config import APOLLO_MODEL, litellm_for
 from agents.tools.event_tools import emit_event
 from agents.tools.memory_tools import (
     load_prior_runs,
@@ -47,7 +47,7 @@ ThreatReport dict in context.
    rather than repeat — build on what was already discovered.
 2. Call `get_iocs` with the job_id to fetch the flat IOC list.
 3. Call `ioc_report_to_json` to serialise the IOC report for enrichment.
-4. Call `enrich_iocs_with_threat_intel` with the JSON string — Gemini will
+4. Call `enrich_iocs_with_threat_intel` with the JSON string — the LLM will
    research each indicator and identify known threat actor/malware associations.
 5. Call `format_threat_report` with the ThreatReport dict to produce a
    structured markdown report.
@@ -203,9 +203,9 @@ as compromised on any infected host.
 
 apollo: Agent = Agent(
     name="apollo",
-    model=APOLLO_MODEL,
+    model=litellm_for(APOLLO_MODEL),
     description=(
-        "IOC extraction, Gemini threat-intel enrichment, and report formatting. "
+        "IOC extraction, threat-intel enrichment, and report formatting. "
         "Fetches IOC data from the sandbox, enriches with threat intelligence, "
         "and transfers the full analysis to Ares."
     ),

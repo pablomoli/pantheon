@@ -4,9 +4,9 @@ import os
 from typing import Final
 
 import httpx
-from google.genai import types
 
-from agents.model_config import MUSE_STT_MODEL, get_genai_client
+from agents.model_config import MUSE_STT_MODEL
+from agents.openrouter_client import openrouter_transcribe_audio
 from agents.tools.event_tools import emit_event
 from sandbox.models import AgentName, EventType
 from voice.exceptions import SpeechError, TranscriptionError
@@ -16,7 +16,7 @@ _ELEVENLABS_BASE_URL: Final[str] = "https://api.elevenlabs.io/v1"
 _STT_MODEL: Final[str] = "scribe_v2"
 _TTS_MODEL: Final[str] = "eleven_multilingual_v2"
 _TTS_OUTPUT_FORMAT: Final[str] = "opus_48000_128"
-_GEMINI_AUDIO_MODEL: Final[str] = MUSE_STT_MODEL
+_OPENROUTER_STT_MODEL: Final[str] = MUSE_STT_MODEL
 _TIMEOUT: Final[httpx.Timeout] = httpx.Timeout(60.0)
 
 
@@ -32,7 +32,7 @@ def _get_elevenlabs_api_key() -> str:
 
 
 async def transcribe(audio_bytes: bytes, mime_type: str = "audio/ogg") -> str:
-    """Transcribe audio to text via ElevenLabs STT with Gemini fallback."""
+    """Transcribe audio to text via ElevenLabs STT with OpenRouter multimodal fallback."""
     if not audio_bytes:
         raise TranscriptionError("Empty audio payload")
 
@@ -55,7 +55,7 @@ async def transcribe(audio_bytes: bytes, mime_type: str = "audio/ogg") -> str:
         return response_text
     except Exception as exc:
         try:
-            response_text = await _transcribe_gemini(audio_bytes, mime_type)
+            response_text = await _transcribe_openrouter(audio_bytes, mime_type)
             await emit_event(
                 EventType.TOOL_RESULT,
                 agent=AgentName.MUSE,
@@ -63,18 +63,17 @@ async def transcribe(audio_bytes: bytes, mime_type: str = "audio/ogg") -> str:
                 payload={
                     "text_preview": response_text[:50],
                     "chars": len(response_text),
-                    "method": "gemini_fallback",
+                    "method": "openrouter_fallback",
                 },
             )
             return response_text
-        except Exception as gemini_exc:  # pragma: no cover
+        except Exception as or_exc:  # pragma: no cover
             message = (
-                "Transcription failed with ElevenLabs and Gemini: "
+                "Transcription failed with ElevenLabs and OpenRouter: "
                 f"{exc.__class__.__name__}: {exc}; "
-                f"{gemini_exc.__class__.__name__}: {gemini_exc}"
+                f"{or_exc.__class__.__name__}: {or_exc}"
             )
-            # Never log audio bytes or transcription content as per AGENTS.md
-            raise TranscriptionError(message) from gemini_exc
+            raise TranscriptionError(message) from or_exc
 
 
 async def speak(text: str, voice_id: str | None = None) -> bytes:
@@ -147,18 +146,10 @@ async def _transcribe_elevenlabs(audio_bytes: bytes, mime_type: str) -> str:
     return text
 
 
-async def _transcribe_gemini(audio_bytes: bytes, mime_type: str) -> str:
-    """Internal Gemini STT fallback implementation using recommended model."""
-    client = get_genai_client()
-    response = await client.aio.models.generate_content(
-        model=_GEMINI_AUDIO_MODEL,
-        contents=[
-            "Transcribe the following audio into plain text. Do not add commentary.",
-            types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
-        ],
+async def _transcribe_openrouter(audio_bytes: bytes, mime_type: str) -> str:
+    """OpenRouter multimodal STT fallback (model must support ``input_audio``)."""
+    return await openrouter_transcribe_audio(
+        model=_OPENROUTER_STT_MODEL,
+        audio_bytes=audio_bytes,
+        mime_type=mime_type,
     )
-
-    text = (response.text or "").strip()
-    if not text:
-        raise TranscriptionError("Gemini STT returned empty text")
-    return text

@@ -4,12 +4,12 @@ from __future__ import annotations
 from google.adk.agents import Agent
 
 from agents.athena import athena
-from agents.model_config import ZEUS_MODEL
+from agents.model_config import ZEUS_MODEL, litellm_for
 from agents.tools.event_tools import emit_event
 
 zeus = Agent(
     name="zeus",
-    model=ZEUS_MODEL,
+    model=litellm_for(ZEUS_MODEL),
     instruction="""\
 You are Zeus, the orchestrator of Pantheon — an AI-driven malware analysis swarm.
 

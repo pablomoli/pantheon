@@ -11,9 +11,8 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from google.genai import types as genai_types
-
-from agents.model_config import LITE_MODEL, get_genai_client
+from agents.model_config import LITE_MODEL, MAX_OUTPUT_TOKENS_LITE
+from agents.openrouter_client import openrouter_chat
 
 _MODEL: str = LITE_MODEL
 
@@ -56,7 +55,7 @@ async def classify_threat(
 ) -> dict[str, Any]:  # Any: mixed types in classification result
     """Classify a suspicious file to determine threat category and severity.
 
-    Uses Gemini to classify the sample based on filename, size, and optional
+    Classifies the sample based on filename, size, and optional
     content preview. This is a fast pre-sandbox triage step run by Athena.
 
     Args:
@@ -83,20 +82,17 @@ async def classify_threat(
         sample_info += f"Content preview:\n{content_preview[:500]}"
 
     prompt = _CLASSIFICATION_PROMPT.format(sample_info=sample_info)
-    client = get_genai_client()
-    response = await client.aio.models.generate_content(
+    raw = await openrouter_chat(
         model=_MODEL,
-        contents=prompt,
-        config=genai_types.GenerateContentConfig(
-            temperature=0.1,
-            max_output_tokens=256,
-            response_mime_type="application/json",
-        ),
+        user_prompt=prompt,
+        temperature=0.1,
+        max_tokens=min(256, MAX_OUTPUT_TOKENS_LITE),
+        json_mode=True,
     )
-
-    raw = response.text or "{}"
+    if not raw:
+        raw = "{}"
     try:
-        result: dict[str, Any] = json.loads(raw)  # Any: Gemini JSON response
+        result: dict[str, Any] = json.loads(raw)  # Any: structured JSON response
     except json.JSONDecodeError:
         result = {
             "threat_category": "unknown",

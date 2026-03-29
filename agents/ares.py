@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from google.adk.agents import Agent
 
-from agents.model_config import ARES_MODEL
+from agents.model_config import ARES_MODEL, litellm_for
 from agents.tools.event_tools import emit_event
 from agents.tools.memory_tools import (
     load_prior_runs,
@@ -117,7 +117,7 @@ threat-specific steps in the appropriate plan sections:
 
 ares: Agent = Agent(
     name="ares",
-    model=ARES_MODEL,
+    model=litellm_for(ARES_MODEL),
     description=(
         "Containment, remediation, and prevention specialist. "
         "Generates three actionable response plans from a completed threat analysis."

@@ -9,7 +9,7 @@ from google.adk.agents.remote_a2a_agent import (
     RemoteA2aAgent,
 )
 
-from agents.model_config import HEAVY_MODEL
+from agents.model_config import HEAVY_MODEL, litellm_for
 from agents.tools.event_tools import emit_event
 from sandbox.models import AgentName, EventType
 
@@ -70,7 +70,7 @@ async def _after_remote_agent(callback_context: CallbackContext) -> None:
 
 impact_specialist = Agent(
     name="impact_agent",
-    model=HEAVY_MODEL,
+    model=litellm_for(HEAVY_MODEL),
     description=(
         "Remote A2A specialist that translates malware evidence into critical "
         "infrastructure continuity impact."

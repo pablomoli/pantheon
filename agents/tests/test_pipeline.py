@@ -1,7 +1,7 @@
 """Tests for the Hades → Apollo → Ares pipeline tool functions.
 
-All sandbox HTTP calls (httpx) and Gemini API calls are mocked — no running
-sandbox or valid GOOGLE_API_KEY is required to run these tests.
+All sandbox HTTP calls (httpx) and OpenRouter API calls are mocked — no running
+sandbox or valid OPENROUTER_API_KEY is required to run these tests.
 
 Coverage:
 - Hades tools  : sandbox_tools (submit_sample, get_report, get_iocs, poll_report,
@@ -142,15 +142,9 @@ def _make_httpx_mock(
     return outer  # type: ignore[return-value]
 
 
-def _make_gemini_mock(text: str) -> MagicMock:
-    """Return a ``get_genai_client()`` mock whose ``aio.models.generate_content``
-    resolves to a response with ``.text == text``."""
-    mock_response = MagicMock()
-    mock_response.text = text
-
-    mock_client = MagicMock()
-    mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
-    return mock_client  # type: ignore[return-value]
+def _make_openrouter_mock(text: str) -> AsyncMock:
+    """Async mock for ``openrouter_chat`` returning *text*."""
+    return AsyncMock(return_value=text)
 
 
 # ---------------------------------------------------------------------------
@@ -432,9 +426,9 @@ class TestIocReportToJson:
 class TestEnrichIocsWithThreatIntel:
     async def test_returns_gemini_enrichment_text(self) -> None:
         enrichment_text = "## IOC Enrichment\n- 198.51.100.42: known Cobalt Strike C2"
-        mock_gemini = _make_gemini_mock(enrichment_text)
+        mock_llm = _make_openrouter_mock(enrichment_text)
 
-        with patch("agents.tools.report_tools.get_genai_client", return_value=mock_gemini):
+        with patch("agents.tools.report_tools.openrouter_chat", mock_llm):
             result = await enrich_iocs_with_threat_intel(
                 ioc_report_to_json(MOCK_IOC_REPORT.model_dump())
             )
@@ -442,12 +436,9 @@ class TestEnrichIocsWithThreatIntel:
         assert result == enrichment_text
 
     async def test_fallback_when_gemini_returns_none_text(self) -> None:
-        mock_response = MagicMock()
-        mock_response.text = None
-        mock_client = MagicMock()
-        mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+        mock_llm = _make_openrouter_mock("")
 
-        with patch("agents.tools.report_tools.get_genai_client", return_value=mock_client):
+        with patch("agents.tools.report_tools.openrouter_chat", mock_llm):
             result = await enrich_iocs_with_threat_intel("{}")
 
         assert result == "(no enrichment generated)"
@@ -455,22 +446,12 @@ class TestEnrichIocsWithThreatIntel:
     async def test_passes_ioc_json_in_prompt(self) -> None:
         captured_prompt: list[str] = []
 
-        mock_response = MagicMock()
-        mock_response.text = "enrichment"
-
-        async def capture_generate(
-            model: str,
-            contents: str,
-            **kwargs: Any,
-        ) -> MagicMock:
-            captured_prompt.append(contents)
-            return mock_response
-
-        mock_client = MagicMock()
-        mock_client.aio.models.generate_content = capture_generate
+        async def capture_chat(*args: Any, **kwargs: Any) -> str:
+            captured_prompt.append(str(kwargs.get("user_prompt", "")))
+            return "enrichment"
 
         ioc_json = ioc_report_to_json(MOCK_IOC_REPORT.model_dump())
-        with patch("agents.tools.report_tools.get_genai_client", return_value=mock_client):
+        with patch("agents.tools.report_tools.openrouter_chat", side_effect=capture_chat):
             await enrich_iocs_with_threat_intel(ioc_json)
 
         assert ioc_json in captured_prompt[0]
@@ -539,20 +520,17 @@ class TestExtractThreatSummaryForAres:
 class TestGenerateContainmentPlan:
     async def test_returns_gemini_plan_text(self) -> None:
         plan = "1. [CRITICAL] Block 198.51.100.42 at the firewall"
-        mock_gemini = _make_gemini_mock(plan)
+        mock_llm = _make_openrouter_mock(plan)
 
-        with patch("agents.tools.remediation_tools.get_genai_client", return_value=mock_gemini):
+        with patch("agents.tools.remediation_tools.openrouter_chat", mock_llm):
             result = await generate_containment_plan("threat summary here")
 
         assert result == plan
 
     async def test_fallback_when_gemini_returns_none(self) -> None:
-        mock_response = MagicMock()
-        mock_response.text = None
-        mock_client = MagicMock()
-        mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+        mock_llm = _make_openrouter_mock("")
 
-        with patch("agents.tools.remediation_tools.get_genai_client", return_value=mock_client):
+        with patch("agents.tools.remediation_tools.openrouter_chat", mock_llm):
             result = await generate_containment_plan("summary")
 
         assert result == "(no plan generated)"
@@ -561,9 +539,9 @@ class TestGenerateContainmentPlan:
 class TestGenerateRemediationPlan:
     async def test_returns_remediation_text(self) -> None:
         plan = "1. Remove C:\\Temp\\svchost32.exe\n2. Delete registry key"
-        mock_gemini = _make_gemini_mock(plan)
+        mock_llm = _make_openrouter_mock(plan)
 
-        with patch("agents.tools.remediation_tools.get_genai_client", return_value=mock_gemini):
+        with patch("agents.tools.remediation_tools.openrouter_chat", mock_llm):
             result = await generate_remediation_plan("threat summary here")
 
         assert result == plan
@@ -572,9 +550,9 @@ class TestGenerateRemediationPlan:
 class TestGeneratePreventionPlan:
     async def test_returns_prevention_text(self) -> None:
         plan = "1. Enable ASR rules\n2. Deploy YARA rule for _0x obfuscation"
-        mock_gemini = _make_gemini_mock(plan)
+        mock_llm = _make_openrouter_mock(plan)
 
-        with patch("agents.tools.remediation_tools.get_genai_client", return_value=mock_gemini):
+        with patch("agents.tools.remediation_tools.openrouter_chat", mock_llm):
             result = await generate_prevention_plan("threat summary here")
 
         assert result == plan
@@ -654,10 +632,10 @@ class TestPipelineIntegration:
         ioc_summary = summarise_ioc_report(ioc_dict)
         assert "evil-c2.example.com" in ioc_summary
 
-        # Stage 2c — Apollo: enrich with threat intel (mocked Gemini)
+        # Stage 2c — Apollo: enrich with threat intel (mocked OpenRouter)
         enrichment = "Cobalt Strike C2 at 198.51.100.42 — high confidence"
-        mock_gemini = _make_gemini_mock(enrichment)
-        with patch("agents.tools.report_tools.get_genai_client", return_value=mock_gemini):
+        mock_llm = _make_openrouter_mock(enrichment)
+        with patch("agents.tools.report_tools.openrouter_chat", mock_llm):
             enrichment_result = await enrich_iocs_with_threat_intel(ioc_json)
 
         assert enrichment_result == enrichment
@@ -668,26 +646,26 @@ class TestPipelineIntegration:
         assert "198.51.100.42" in ares_summary
         assert enrichment in ares_summary
 
-        # Stage 3b — Ares: generate all three plans (mocked Gemini)
+        # Stage 3b — Ares: generate all three plans (mocked OpenRouter)
         containment_text = "1. [CRITICAL] Block 198.51.100.42"
         remediation_text = "1. Delete svchost32.exe from %TEMP%"
         prevention_text = "1. Deploy YARA rule for _0x obfuscation pattern"
 
         with patch(
-            "agents.tools.remediation_tools.get_genai_client",
-            return_value=_make_gemini_mock(containment_text),
+            "agents.tools.remediation_tools.openrouter_chat",
+            _make_openrouter_mock(containment_text),
         ):
             containment = await generate_containment_plan(ares_summary)
 
         with patch(
-            "agents.tools.remediation_tools.get_genai_client",
-            return_value=_make_gemini_mock(remediation_text),
+            "agents.tools.remediation_tools.openrouter_chat",
+            _make_openrouter_mock(remediation_text),
         ):
             remediation = await generate_remediation_plan(ares_summary)
 
         with patch(
-            "agents.tools.remediation_tools.get_genai_client",
-            return_value=_make_gemini_mock(prevention_text),
+            "agents.tools.remediation_tools.openrouter_chat",
+            _make_openrouter_mock(prevention_text),
         ):
             prevention = await generate_prevention_plan(ares_summary)
 

@@ -1,4 +1,4 @@
-"""Gemini-powered malware analysis — sends deobfuscated content for behavioral inference."""
+"""LLM-powered malware analysis — sends deobfuscated content for behavioural inference."""
 from __future__ import annotations
 
 import json
@@ -6,10 +6,8 @@ import logging
 import re
 from typing import Any, cast
 
-from google import genai
-from google.genai import types
-
-from agents.model_config import GEMINI_ANALYST_MODEL, get_genai_client
+from agents.model_config import GEMINI_ANALYST_MODEL, MAX_OUTPUT_TOKENS_LITE
+from agents.openrouter_client import openrouter_chat
 from sandbox.models import FileIOCs, NetworkIOCs, RiskLevel, ThreatReport
 
 _MODEL = GEMINI_ANALYST_MODEL
@@ -44,31 +42,27 @@ Extracted content:
 
 class GeminiAnalyst:
     def __init__(self, api_key: str | None = None) -> None:
-        if api_key is not None:
-            self._client = genai.Client(api_key=api_key)
-        else:
-            self._client = get_genai_client()
+        self._api_key = api_key
 
     async def analyze(self, summary_text: str) -> ThreatReport:
-        """Send extracted strings to Gemini and parse the response into a ThreatReport."""
+        """Send extracted strings to the LLM and parse the response into a ThreatReport."""
         prompt = _ANALYSIS_PROMPT + summary_text[:12000]  # cap context
         try:
-            raw = await self._call_gemini(prompt)
+            raw = await self._call_llm(prompt)
             return self._parse_response(raw)
         except Exception as exc:
-            logger.warning("Gemini analysis failed: %s", exc)
+            logger.warning("LLM analysis failed: %s", exc)
             return self._fallback_report(str(exc))
 
-    async def _call_gemini(self, prompt: str) -> str:
-        response = await self._client.aio.models.generate_content(
+    async def _call_llm(self, prompt: str) -> str:
+        return await openrouter_chat(
             model=_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                thinking_config=types.ThinkingConfig(thinking_budget=1024),
-            ),
+            user_prompt=prompt,
+            temperature=0.2,
+            max_tokens=min(4096, MAX_OUTPUT_TOKENS_LITE),
+            json_mode=True,
+            api_key=self._api_key,
         )
-        return response.text or ""
 
     def _parse_response(self, raw: str) -> ThreatReport:
         # Strip markdown code fences if present
@@ -76,11 +70,8 @@ class GeminiAnalyst:
         try:
             data: dict[str, Any] = json.loads(text)
         except json.JSONDecodeError:
-            # Gemini sometimes emits bare backslashes in Windows paths that are
+            # The model sometimes emits bare backslashes in Windows paths that are
             # invalid JSON escapes (e.g. \S, \u not followed by 4 hex digits).
-            # Replace every backslash that is not a valid JSON escape sequence
-            # with a forward slash and retry before giving up.
-            # Valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
             sanitized = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r"/", text)
             data = json.loads(sanitized)
 
@@ -110,9 +101,9 @@ class GeminiAnalyst:
         return ThreatReport(
             job_id="",
             status="complete",
-            malware_type="unknown — Gemini analysis failed",
+            malware_type="unknown — LLM analysis failed",
             obfuscation_technique="unknown",
-            behavior=[f"Gemini error: {error}"],
+            behavior=[f"LLM error: {error}"],
             network_iocs=NetworkIOCs(),
             file_iocs=FileIOCs(),
             registry_iocs=[],
