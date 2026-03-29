@@ -10,7 +10,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --no-dev --frozen
 
+# Sandbox service code
 COPY sandbox/ ./sandbox/
+
+# Agent code — required by sandbox lifespan (Artemis + Swarm worker)
+COPY agents/ ./agents/
 
 EXPOSE 9000
 CMD ["uv", "run", "uvicorn", "sandbox.main:app", "--host", "0.0.0.0", "--port", "9000"]

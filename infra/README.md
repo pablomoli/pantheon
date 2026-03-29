@@ -46,6 +46,37 @@ Typical flow:
 4. Start services
 5. Wait for sandbox health check
 
+Run on the server:
+
+```bash
+./infra/deploy.sh
+```
+
+Useful flags:
+
+```bash
+./infra/deploy.sh --branch master --set-webhook
+./infra/deploy.sh --skip-pull
+```
+
+`--set-webhook` requires `WEBAPP_BASE_URL` and `TELEGRAM_BOT_TOKEN` in `.env` and configures Telegram to post to `${WEBAPP_BASE_URL}/telegram`.
+
+From your local machine, you can deploy to Vultr in one command:
+
+```bash
+./infra/deploy-vultr.sh --identity ~/.ssh/id_rsa --copy-env --set-webhook
+```
+
+The helper will SSH to the VPS, ensure the remote repo exists, optionally sync local `.env`, and execute `infra/deploy.sh` remotely.
+
+Simplest path (single command entrypoint):
+
+```bash
+./infra/deploy-demo.sh --identity ~/.ssh/id_rsa --copy-env --set-webhook
+```
+
+`deploy-demo.sh` is a thin orchestrator that runs `deploy-vultr.sh`, which in turn runs `deploy.sh` on the server.
+
 ## Operational Commands
 
 From repo root:

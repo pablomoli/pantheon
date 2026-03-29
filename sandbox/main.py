@@ -6,14 +6,17 @@ import logging
 import docker
 import docker.errors
 from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 
 from sandbox.analyzer import Analyzer
 from sandbox.events import bus
 from sandbox.models import (
+    AgentName,
     AnalyzeRequest,
     AnalyzeResponse,
+    EventType,
     HealthResponse,
     IOCReport,
     MemoryEntry,
@@ -52,6 +55,13 @@ app = FastAPI(
     description="Pantheon malware sandbox service",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 _analyzer = Analyzer()
