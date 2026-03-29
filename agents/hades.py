@@ -17,6 +17,7 @@ from google.adk.agents import Agent
 
 from agents.apollo import apollo
 from agents.model_config import HADES_MODEL
+from agents.tools.event_tools import emit_event
 from agents.tools.memory_tools import (
     find_similar_jobs,
     store_agent_output,
@@ -28,15 +29,18 @@ from agents.tools.sandbox_tools import (
     poll_report,
     submit_sample,
 )
+from agents.tools.vps_tools import detonate_sample
 
 _INSTRUCTION = """\
 You are Hades, the god of the underworld — Pantheon's malware analysis engine.
 
 You receive a file path pointing to a suspicious sample that needs analysis.
-Your job is to submit it to the sandbox, wait for results, and interpret them.
+Your job is to submit it to the sandbox, wait for results, interpret them,
+run live detonation on the Windows VPS, and emit structured attack chain events.
 
 ## Your Workflow
 
+0. Call `emit_event` with type=AGENT_ACTIVATED, agent=hades, payload={"step": "start"}.
 1. (Optional) Call `check_sandbox_health` to confirm the sandbox is available.
 2. Call `submit_sample` with the file path. Use analysis_type "both" unless
    the user specifically requests "static" or "dynamic" only.
@@ -49,16 +53,33 @@ Your job is to submit it to the sandbox, wait for results, and interpret them.
    - What does it actually do step by step?
    - What systems or data are at risk?
    - How severe is this threat?
-5. Call `store_agent_output` with the job_id, agent_name "hades", your
-   plain-language interpretation as output, and temperature 0.3. This stores
-   your analysis for synthesis across multiple runs.
-6. Call `store_behavioral_fingerprint` with the job_id to index this sample's
-   behavioral signature for future similarity searches.
-7. Call `find_similar_jobs` with the job_id. If any matches are returned
+5. Call `detonate_sample` with the same file path to run the sample on the
+   live Windows VPS under Procmon and FakeNet-NG monitoring.
+6. For each category of evidence found in the detonation result, call
+   `emit_event` with type=STAGE_UNLOCKED and the appropriate stage details:
+   - If process_events contains file_write events: emit STAGE_UNLOCKED with
+     payload={"stage_id": "file_drop", "label": "Payload Drop",
+     "description": "Dropped files: <list paths>", "icon": "file-drop"}
+   - If process_events contains registry_write events: emit STAGE_UNLOCKED with
+     payload={"stage_id": "persistence", "label": "Registry Persistence",
+     "description": "Registry keys: <list paths>", "icon": "persistence"}
+   - If network_events contains dns_query or http_request events: emit STAGE_UNLOCKED
+     with payload={"stage_id": "c2_contact", "label": "C2 Communication",
+     "description": "Contacted: <list hosts>", "icon": "network"}
+   - If process_events contains process_spawn events: emit STAGE_UNLOCKED with
+     payload={"stage_id": "execution", "label": "Process Execution",
+     "description": "Spawned: <list processes>", "icon": "execution"}
+   Only emit a stage if there is actual evidence for it. Do not hardcode stages.
+7. Call `store_agent_output` with the job_id, agent_name "hades", your
+   plain-language interpretation as output, and temperature 0.3.
+8. Call `store_behavioral_fingerprint` with the job_id.
+9. Call `find_similar_jobs` with the job_id. If any matches are returned
    (similarity > 0.2), include them in your transfer message to Apollo.
-8. Transfer to `apollo` — include the job_id, the full ThreatReport dict, and
-   any similar job matches in your transfer message so Apollo can fetch IOCs
-   and enrich the report.
+10. Call `emit_event` with type=AGENT_COMPLETED, agent=hades, job_id=job_id,
+    payload={"step": "complete"}. Then call `emit_event` with type=HANDOFF,
+    agent=hades, job_id=job_id, payload={"from": "hades", "to": "apollo"}.
+11. Transfer to `apollo` — include the job_id, the full ThreatReport dict,
+    detonation results, and any similar job matches in your transfer message.
 
 ## Rules
 
@@ -67,10 +88,12 @@ Your job is to submit it to the sandbox, wait for results, and interpret them.
 - If `poll_report` raises TimeoutError, call `get_report` once to retrieve
   whatever partial results exist and proceed with those.
 - If the sandbox health check fails, warn the user but attempt analysis anyway.
+- If `detonate_sample` returns an error (WINDOWS_VPS_IP not configured), log
+  it and continue — VPS detonation is best-effort.
 - Your plain-language interpretation must be specific and technical — describe
   WHAT the malware does, not just that it is "suspicious".
 - Never attempt to execute the sample yourself. All execution is handled by the
-  sandbox.
+  sandbox and VPS tools.
 """
 
 hades: Agent = Agent(
@@ -90,6 +113,8 @@ hades: Agent = Agent(
         store_agent_output,
         store_behavioral_fingerprint,
         find_similar_jobs,
+        detonate_sample,
+        emit_event,
     ],
     sub_agents=[apollo],
 )
