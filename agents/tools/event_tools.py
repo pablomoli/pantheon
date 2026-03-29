@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 import httpx
 
@@ -21,20 +20,20 @@ _SANDBOX_URL: str = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
 
 
 async def emit_event(
-    event_type: EventType,
+    event_type: str,
     *,
-    agent: AgentName | None = None,
+    agent: str | None = None,
     tool: str | None = None,
     job_id: str | None = None,
-    payload: dict[str, Any] | None = None,  # Any: payload schema varies per EventType
+    payload: str | None = None,  # accepted but unused — keeps call sites stable
 ) -> None:
     """Fire-and-forget: emit a PantheonEvent to the Hephaestus EventBus."""
     event = PantheonEvent(
-        type=event_type,
-        agent=agent,
+        type=EventType(event_type.lower()),
+        agent=AgentName(agent.lower()) if agent else None,
         tool=tool,
         job_id=job_id,
-        payload=payload or {},
+        payload={},
     )
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:

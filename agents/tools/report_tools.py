@@ -73,19 +73,20 @@ async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
     return result
 
 
-def format_threat_report(report: dict[str, Any]) -> str:  # Any: nested ThreatReport data
-    """Format a ThreatReport dict as a concise markdown incident report.
+def format_threat_report(report_json: str) -> str:
+    """Format a ThreatReport JSON string as a concise markdown incident report.
 
     Suitable for display in Telegram or for passing as context to downstream
     agents (Ares).
 
     Args:
-        report: Dict representation of a :class:`~sandbox.models.ThreatReport`
-            with status ``"complete"`` or ``"failed"``.
+        report_json: JSON-encoded ThreatReport dict (from get_report).
 
     Returns:
         Markdown string summarising the threat analysis.
     """
+    import json as _json
+    report: dict = _json.loads(report_json) if isinstance(report_json, str) else report_json
     status = report.get("status", "unknown")
     if status == "failed":
         return f"**Analysis failed** for job `{report.get('job_id', 'N/A')}`."
@@ -168,15 +169,17 @@ def format_threat_report(report: dict[str, Any]) -> str:  # Any: nested ThreatRe
     return "\n".join(lines)
 
 
-def summarise_ioc_report(ioc_report: dict[str, Any]) -> str:  # Any: IOCReport fields
+def summarise_ioc_report(ioc_report_json: str) -> str:
     """Produce a compact one-paragraph IOC summary for agent context passing.
 
     Args:
-        ioc_report: Dict representation of an :class:`~sandbox.models.IOCReport`.
+        ioc_report_json: JSON-encoded IOCReport dict (from get_iocs).
 
     Returns:
         Single paragraph summarising the IOC counts and highlights.
     """
+    import json as _json
+    ioc_report: dict = _json.loads(ioc_report_json) if isinstance(ioc_report_json, str) else ioc_report_json
     ips: list[str] = ioc_report.get("ips", [])
     domains: list[str] = ioc_report.get("domains", [])
     urls: list[str] = ioc_report.get("urls", [])
@@ -210,15 +213,16 @@ def summarise_ioc_report(ioc_report: dict[str, Any]) -> str:  # Any: IOCReport f
     return "IOC summary: " + "; ".join(parts) + "."
 
 
-def ioc_report_to_json(ioc_report: dict[str, Any]) -> str:  # Any: IOCReport fields
-    """Serialise an IOCReport dict to a compact JSON string.
+def ioc_report_to_json(ioc_report_json: str) -> str:
+    """Normalise an IOCReport JSON string to compact form.
 
     Used to pass IOC data to :func:`enrich_iocs_with_threat_intel`.
 
     Args:
-        ioc_report: Dict representation of an :class:`~sandbox.models.IOCReport`.
+        ioc_report_json: JSON-encoded IOCReport dict (from get_iocs).
 
     Returns:
         Compact JSON string.
     """
-    return json.dumps(ioc_report, separators=(",", ":"))
+    parsed = json.loads(ioc_report_json)
+    return json.dumps(parsed, separators=(",", ":"))

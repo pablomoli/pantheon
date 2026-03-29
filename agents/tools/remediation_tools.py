@@ -289,7 +289,7 @@ def build_full_response(
 
 
 def extract_threat_summary_for_ares(
-    threat_report: dict[str, Any],  # Any: nested ThreatReport data
+    threat_report_json: str,
     enrichment: str,
 ) -> str:
     """Produce a compact threat summary string for Ares plan generation tools.
@@ -299,13 +299,15 @@ def extract_threat_summary_for_ares(
     Ares plan tools.
 
     Args:
-        threat_report: Dict representation of a completed ThreatReport.
+        threat_report_json: JSON-encoded ThreatReport dict (from get_report).
         enrichment: Plain-text enrichment from
             :func:`~agents.tools.report_tools.enrich_iocs_with_threat_intel`.
 
     Returns:
         Compact threat summary string.
     """
+    import json as _json
+    threat_report: dict = _json.loads(threat_report_json) if isinstance(threat_report_json, str) else threat_report_json
     malware_type: str = threat_report.get("malware_type", "Unknown malware")
     risk: str = threat_report.get("risk_level", "unknown")
     behaviors: list[str] = threat_report.get("behavior", [])
