@@ -89,6 +89,7 @@ def main() -> None:
         "voice/__init__.py",
         "voice/client.py",
         "voice/agent.py",
+        "voice/tools.py",
         "voice/personas.py",
         "voice/exceptions.py",
         "pyproject.toml",
@@ -109,9 +110,12 @@ ELEVENLABS_API_KEY={os.getenv('ELEVENLABS_API_KEY', '')}
 ELEVENLABS_AGENT_ID={os.getenv('ELEVENLABS_AGENT_ID', '')}
 ELEVENLABS_VOICE_ID={os.getenv('ELEVENLABS_VOICE_ID', '')}
 TELEGRAM_BOT_TOKEN={os.getenv('TELEGRAM_BOT_TOKEN', '')}
+GEMINI_API={os.getenv('GEMINI_API', '')}
+GOOGLE_API_KEY={os.getenv('GOOGLE_API_KEY', '')}
 WEBAPP_BASE_URL=https://{domain}
 WEBAPP_PORT=8443
-SANDBOX_URL=http://localhost:9090
+SANDBOX_API_URL=http://localhost:9000
+SANDBOX_URL=http://localhost:9000
 LOG_LEVEL=INFO
 SAMPLES_DIR=/tmp/samples
 """
@@ -120,10 +124,11 @@ SAMPLES_DIR=/tmp/samples
     print("  Pushed .env")
 
     # Also push agents/ files needed by voice/client.py and other imports
-    for agent_file in ["agents/__init__.py", "agents/_dev_stub.py", "agents/prompts.py", "agents/model_config.py"]:
+    for agent_file in ["agents/__init__.py", "agents/_dev_stub.py", "agents/prompts.py", "agents/model_config.py", "agents/tools/__init__.py", "agents/tools/event_tools.py"]:
         local_path = os.path.join(local_base, agent_file)
         if os.path.exists(local_path):
-            ssh_exec(client, "mkdir -p /root/pantheon/agents")
+            remote_dir = f"/root/pantheon/{os.path.dirname(agent_file)}"
+            ssh_exec(client, f"mkdir -p {remote_dir}")
             sftp.put(local_path, f"/root/pantheon/{agent_file}")
             print(f"  Pushed {agent_file}")
 
