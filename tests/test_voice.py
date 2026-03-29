@@ -102,7 +102,7 @@ async def test_speak_returns_audio_bytes() -> None:
 
 
 @patch.dict("os.environ", {"ELEVENLABS_API_KEY": "fake-key"})
-async def test_speak_empty_audio_raises() -> None:
+async def test_speak_empty_audio_returns_empty() -> None:
     mock_response = MagicMock()
     mock_response.content = b""
     mock_response.raise_for_status = MagicMock()
@@ -113,8 +113,8 @@ async def test_speak_empty_audio_raises() -> None:
     mock_client.__aexit__ = AsyncMock(return_value=False)
 
     with patch("voice.client.httpx.AsyncClient", return_value=mock_client):
-        with pytest.raises(SpeechError, match="empty"):
-            await voice_client.speak("hello")
+        result = await voice_client.speak("hello")
+    assert result == b""
 
 
 @patch.dict("os.environ", {"ELEVENLABS_API_KEY": "fake-key"})
