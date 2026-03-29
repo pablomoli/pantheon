@@ -39,6 +39,8 @@ A user submits a sample (file upload, text, or voice message) through Telegram �
 | Response     | Ares       | Generates containment, remediation, and prevention plan with YARA/Sigma     |
 | Sandbox      | Hephaestus | FastAPI service, Docker container lifecycle, EventBus, WebSocket stream     |
 | Sentinel     | Artemis    | Background daemon — auto-triggers pipeline on new samples                   |
+| Voice        | Muse       | ElevenLabs Conversational AI — STT, TTS, and live voice call tools          |
+| Impact       | —          | Remote A2A specialist — critical infrastructure continuity assessment       |
 
 All voice interaction is handled by the Muse module via ElevenLabs. Agent memory and behavioral similarity detection are handled by the KnowledgeStore layer in Hephaestus.
 
@@ -384,12 +386,14 @@ Pantheon is developed in strict typing mode (mypy strict + Ruff linting).
 
 ## Key Documentation
 
+- Safety rules and team boundaries: CLAUDE.md
 - Original architecture: docs/superpowers/specs/2026-03-28-pantheon-design.md
 - Dashboard + event protocol spec: docs/superpowers/specs/2026-03-28-pantheon-dashboard-design.md
 - Judge demo script: docs/demo-judge-walkthrough.md
 - Malware findings write-up: docs/malware-analysis-6108674530.md
 - API contract: sandbox/models.py
 - Team implementation prompts: AGENTS.md
+- Cloud Run ADK apps: adk_apps/
 
 ---
 

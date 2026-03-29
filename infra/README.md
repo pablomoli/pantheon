@@ -1,91 +1,101 @@
 # Infrastructure
 
-This folder defines containerization, service composition, reverse proxy behavior, and deployment scripts for Pantheon.
+This folder defines containerization, service composition, reverse proxy routing, and deployment scripts for Pantheon.
 
 ## Files
 
-- `docker-compose.yml`: primary service topology and volumes/networks
+- `docker-compose.yml`: primary service topology — 3 services on a shared bridge network
 - `Dockerfile.sandbox`: build recipe for Hephaestus sandbox API
+- `Dockerfile.frontend`: build recipe for Next.js dashboard (multi-stage build)
 - `Dockerfile.agents`: build recipe for agent service
 - `Dockerfile.gateway`: build recipe for Telegram/voice gateway
-- `nginx.conf`: reverse proxy routes (including dashboard path)
+- `nginx.conf`: reverse proxy routes (dashboard, WebSocket, sandbox API)
 - `deploy.sh`: server deployment helper for `/opt/pantheon`
+- `deploy-vultr.sh`: remote deployment orchestrator (SSH to Vultr VPS)
+- `deploy-demo.sh`: single-command demo deployment (wraps deploy-vultr.sh)
+- `cloud-deploy.sh`: Google Cloud Run deployment (ADK Dev UI + A2A impact agent)
 
-## Current Compose Shape
+## Docker Compose Services
 
-The compose file currently enables the sandbox service by default and keeps additional services scaffolded/commented for staged rollout.
+All three services are active in `docker-compose.yml`:
 
-Active by default:
+| Service | Port | Description |
+| --- | --- | --- |
+| `sandbox` | 9000 | Hephaestus API — analysis, memory, WebSocket events |
+| `frontend` | 3000 | Next.js dashboard — landing page + live analysis views |
+| `nginx` | 80 | Reverse proxy — routes `/ws`, `/events`, `/sandbox/*` to sandbox; everything else to frontend |
 
-- `sandbox` on port `9000`
+## Nginx Routing
 
-Prepared but currently commented:
-
-- `agents`
-- `gateway`
-- `nginx`
+| Path | Target |
+| --- | --- |
+| `/ws` | `sandbox:9000/ws` (WebSocket upgrade) |
+| `/events` | `sandbox:9000/events` |
+| `/sandbox/*` | `sandbox:9000` |
+| `/` and all other paths | `frontend:3000` |
 
 ## Persistent Data
 
 - `samples` volume: sample files and analysis artifacts
-- `db` volume: SQLite data (`pantheon.db`)
+- `db` volume: SQLite database (`pantheon.db`)
 
-## Deployment Flow
+## Deployment Options
 
-`deploy.sh` expects:
+### 1. Vultr VPS (Primary — demo and production)
 
-- repository at `/opt/pantheon`
-- valid `.env` in repo root
-- Docker and Docker Compose installed on target host
-
-Typical flow:
-
-1. Pull latest `master`
-2. Validate `.env`
-3. Build containers
-4. Start services
-5. Wait for sandbox health check
-
-Run on the server:
-
-```bash
-./infra/deploy.sh
-```
-
-Useful flags:
-
-```bash
-./infra/deploy.sh --branch master --set-webhook
-./infra/deploy.sh --skip-pull
-```
-
-`--set-webhook` requires `WEBAPP_BASE_URL` and `TELEGRAM_BOT_TOKEN` in `.env` and configures Telegram to post to `${WEBAPP_BASE_URL}/telegram`.
-
-From your local machine, you can deploy to Vultr in one command:
-
-```bash
-./infra/deploy-vultr.sh --identity ~/.ssh/id_rsa --copy-env --set-webhook
-```
-
-The helper will SSH to the VPS, ensure the remote repo exists, optionally sync local `.env`, and execute `infra/deploy.sh` remotely.
-
-Simplest path (single command entrypoint):
+**From your local machine (one command):**
 
 ```bash
 ./infra/deploy-demo.sh --identity ~/.ssh/id_rsa --copy-env --set-webhook
 ```
 
-`deploy-demo.sh` is a thin orchestrator that runs `deploy-vultr.sh`, which in turn runs `deploy.sh` on the server.
+`deploy-demo.sh` orchestrates: `deploy-vultr.sh` → SSH → `deploy.sh` on server.
+
+**Or step-by-step:**
+
+```bash
+# Remote deploy via SSH
+./infra/deploy-vultr.sh --identity ~/.ssh/id_rsa --copy-env --set-webhook
+
+# Or directly on the server
+./infra/deploy.sh --branch master --set-webhook
+```
+
+`deploy.sh` flow:
+1. Pull latest branch
+2. Validate `.env`
+3. Build containers
+4. Start services
+5. Wait for sandbox health check
+6. Optionally set Telegram webhook
+
+`--set-webhook` requires `WEBAPP_BASE_URL` and `TELEGRAM_BOT_TOKEN` in `.env` and configures Telegram to post to `${WEBAPP_BASE_URL}/telegram`.
+
+### 2. Google Cloud Run (ADK Demo)
+
+```bash
+export GCP_PROJECT_ID=your-project-id
+./infra/cloud-deploy.sh
+```
+
+Deploys the Pantheon agent tree and remote impact specialist to Cloud Run with ADK Dev UI enabled. Public URLs are printed at the end.
 
 ## Operational Commands
 
-From repo root:
-
 ```bash
+# Build all services
 docker compose -f infra/docker-compose.yml build
+
+# Start all services (detached)
 docker compose -f infra/docker-compose.yml up -d
+
+# Check service health
 docker compose -f infra/docker-compose.yml ps
+
+# View logs
 docker compose -f infra/docker-compose.yml logs -f sandbox
+docker compose -f infra/docker-compose.yml logs -f frontend
+docker compose -f infra/docker-compose.yml logs -f nginx
 ```
 
 ## Security Notes
@@ -93,3 +103,4 @@ docker compose -f infra/docker-compose.yml logs -f sandbox
 - Never embed secrets in compose or Dockerfiles; use `.env`.
 - Follow malware-safety boundaries in `../CLAUDE.md`.
 - Keep outbound restrictions and VPS isolation in place for live detonation workflows.
+- The Docker socket is mounted into the sandbox container for container-in-container dynamic analysis.

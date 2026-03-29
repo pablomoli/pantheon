@@ -127,6 +127,10 @@ export class EventStore {
       agent: event.agent?.toLowerCase() as AgentName,
     };
 
+    if (this.shouldDropEvent(normalizedEvent)) {
+      return;
+    }
+
     this.events.push(normalizedEvent);
 
     // Update agent status
@@ -280,7 +284,9 @@ export class EventStore {
   }
 
   getTelemetry() {
-    return [...this.telemetry];
+    return this.telemetry.filter(
+      (entry) => !this.isHeartbeatTelemetry(entry.command, entry.output)
+    );
   }
 
   getHandoffs() {
@@ -312,6 +318,9 @@ export class EventStore {
 
     if (event.type === "TELEMETRY") {
       const message = (payload.output as string) || (payload.message as string) || "";
+      if (this.isHeartbeatTelemetry(payload.command as string | undefined, message)) {
+        return;
+      }
       const stream = payload.stream as "stdin" | "stdout" | "stderr" | undefined;
       this.pushTelemetry({
         timestamp: event.timestamp,
@@ -331,6 +340,26 @@ export class EventStore {
       output: summary.output,
       stream: summary.stream,
     });
+  }
+
+  private isHeartbeatTelemetry(command: string | undefined, output: string): boolean {
+    const normalizedCommand = (command || "").trim().toLowerCase();
+    const normalizedOutput = output.trim().toLowerCase();
+    return normalizedCommand === "heartbeat" || normalizedOutput === "heartbeat: hephaestus alive";
+  }
+
+  private shouldDropEvent(event: PantheonEvent): boolean {
+    if (event.type !== "TELEMETRY") {
+      return false;
+    }
+
+    const payload = event.payload || {};
+    const command = typeof payload.command === "string" ? payload.command : undefined;
+    const output = typeof payload.output === "string"
+      ? payload.output
+      : (typeof payload.message === "string" ? payload.message : "");
+
+    return this.isHeartbeatTelemetry(command, output);
   }
 
   private describeEvent(event: PantheonEvent): {

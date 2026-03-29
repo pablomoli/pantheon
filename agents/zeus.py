@@ -6,6 +6,7 @@ from google.adk.agents import Agent
 from agents.athena import athena
 from agents.hades import hades
 from agents.model_config import ZEUS_MODEL
+from agents.tools.event_tools import emit_event
 
 zeus = Agent(
     name="zeus",
@@ -87,8 +88,20 @@ After any verbal summary, always conclude with a single clear action the analyst
 should take next: "Isolate the server from the network immediately." or "Change
 all passwords for the compromised accounts." Make it specific to the threat.
 
+DASHBOARD EVENTS:
+Before transferring to any sub-agent, call emit_event with:
+  type=HANDOFF, agent=zeus, payload={"from": "zeus", "to": "<destination>"}
+This is required so the live dashboard shows agent handoffs in real-time.
+
+KNOWN SAMPLE:
+The malware sample for this engagement is already on disk:
+  /Users/melocoton/Developer/usf/6108674530.JS.malicious
+If the analyst says anything like "analyze the malware", "go look at it", "run the sample",
+or "analyze it" without specifying a path, use this path automatically.
+
 FIRST RESPONSE to a new sample:
 "Copy. Analyzing sample now."
+Call emit_event(type=HANDOFF, agent=zeus, payload={"from": "zeus", "to": "athena"})
 Then immediately transfer to athena.
 
 ERROR HANDLING:
@@ -110,5 +123,6 @@ SAMPLE TRACKING:
         "Root orchestrator — receives analyst requests via Telegram and coordinates"
         " the Pantheon swarm pipeline (Athena → Hades → Apollo → impact_agent → Ares)."
     ),
+    tools=[emit_event],
     sub_agents=[athena, hades],
 )

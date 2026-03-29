@@ -37,6 +37,11 @@ def _looks_like_pantheon_activation(text: str) -> bool:
     return any(marker in lowered for marker in activation_markers)
 
 
+def _looks_like_malware_sample_prompt(text: str) -> bool:
+    """True for Hermes file-upload / voice analyze prompts (must use ADK swarm only)."""
+    return text.lower().strip().startswith("analyze the malware sample at ")
+
+
 def _has_elevenlabs_agent() -> bool:
     """Check whether we should route through ElevenLabs Conversational AI."""
     global _use_elevenlabs_agent
@@ -116,6 +121,11 @@ async def _run_via_adk(user_id: str, text: str) -> str:
 
     if not response_parts:
         logger.warning("Zeus returned an empty response for user %s", user_id)
+        await emit_event(
+            EventType.AGENT_COMPLETED.value,
+            agent=AgentName.ZEUS.value,
+            payload={"status": "empty"},
+        )
         return ""
 
     result = "".join(response_parts)
@@ -141,16 +151,36 @@ async def get_zeus_response(user_id: str, text: str) -> str:
     return await _run_via_adk(user_id, text)
 
 
+_STRICT_ADK_FAILURE_MESSAGE = (
+    "Pantheon analysis did not finish: the ADK swarm returned no response or hit an error. "
+    "Verify GOOGLE_API_KEY or GEMINI_API, SANDBOX_API_URL, and that Hephaestus is running; "
+    "then send /reset and try again."
+)
+
+
+def _requires_strict_adk_only(text: str, *, force_adk: bool) -> bool:
+    """Malware analysis paths must not fall through to ElevenLabs (different brain, no swarm)."""
+    return (
+        force_adk
+        or _looks_like_pantheon_activation(text)
+        or _looks_like_malware_sample_prompt(text)
+    )
+
+
 async def get_agent_response(user_id: str, text: str, *, force_adk: bool = False) -> str:
     """Send *text* to the best available agent and return the full reply.
 
     Priority:
     1. ADK pipeline via Zeus (real or stub) — always preferred so the full
        multi-agent swarm runs and dashboard events are emitted.
-    2. ElevenLabs Conversational AI agent — fallback only if ADK fails.
+    2. ElevenLabs Conversational AI agent — fallback only when ADK fails or is
+       empty *and* the message is not a malware-analysis activation.
 
-    The user always gets a response.
+    Analysis-style prompts (file upload wording, ``force_adk=True``, or explicit
+    analyze/triage phrasing) never use ElevenLabs fallback.
     """
+    strict_adk = _requires_strict_adk_only(text, force_adk=force_adk)
+
     # --- Always try ADK pipeline first (Zeus → Athena → Hades → ...) ---
     try:
         response = await _run_via_adk(user_id, text)
@@ -160,7 +190,10 @@ async def get_agent_response(user_id: str, text: str, *, force_adk: bool = False
     except Exception:
         logger.exception("ADK pipeline failed for user %s", user_id)
 
-    # --- Fall back to ElevenLabs agent ---
+    if strict_adk:
+        return _STRICT_ADK_FAILURE_MESSAGE
+
+    # --- Fall back to ElevenLabs agent (conversational only) ---
     if _has_elevenlabs_agent():
         try:
             response = await _run_via_elevenlabs(text)
