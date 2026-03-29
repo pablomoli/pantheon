@@ -72,6 +72,19 @@ async def submit_sample(file_path: str, analysis_type: str = "both") -> dict[str
     return {"job_id": result.job_id, "status": result.status}
 
 
+async def _fetch_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump()
+    """Fetch the raw ThreatReport from the sandbox without emitting events.
+
+    Used internally by :func:`get_report` and :func:`poll_report` to avoid
+    spurious TOOL_CALLED/TOOL_RESULT events on every poll iteration.
+    """
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(f"{_SANDBOX_URL}/sandbox/report/{job_id}")
+        resp.raise_for_status()
+        report = ThreatReport.model_validate(resp.json())
+    return report.model_dump()
+
+
 async def get_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump()
     """Fetch the current threat analysis report for a sandbox job.
 
@@ -88,21 +101,18 @@ async def get_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump
         EventType.TOOL_CALLED,
         agent=AgentName.HADES,
         tool="get_report",
+        job_id=job_id,
         payload={"job_id": job_id},
     )
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(f"{_SANDBOX_URL}/sandbox/report/{job_id}")
-        resp.raise_for_status()
-        report = ThreatReport.model_validate(resp.json())
-    report_dict = report.model_dump()
+    report = await _fetch_report(job_id)
     await emit_event(
         EventType.TOOL_RESULT,
         agent=AgentName.HADES,
         tool="get_report",
         job_id=job_id,
-        payload={"status": report_dict.get("status")},
+        payload={"status": report.get("status")},
     )
-    return report_dict
+    return report
 
 
 async def get_iocs(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump()
@@ -166,7 +176,7 @@ async def poll_report(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dum
         payload={"job_id": job_id},
     )
     for _ in range(_MAX_POLLS):
-        report = await get_report(job_id)
+        report = await _fetch_report(job_id)
         if report.get("status") in ("complete", "failed"):
             await emit_event(
                 EventType.TOOL_RESULT,
