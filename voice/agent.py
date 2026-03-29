@@ -17,7 +17,9 @@ from elevenlabs import AsyncElevenLabs
 from elevenlabs.conversational_ai.conversation import (
     AsyncAudioInterface,
     AsyncConversation,
+    ClientTools,
 )
+from voice.tools import tool_analyze, tool_report, tool_status
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +74,17 @@ async def ask_agent(text: str) -> str:
     async def on_session_end() -> None:
         response_done.set()
 
+    client_tools = ClientTools()
+    client_tools.register("analyze", tool_analyze, is_async=True)
+    client_tools.register("report", tool_report, is_async=True)
+    client_tools.register("status", tool_status, is_async=True)
+
     conversation = AsyncConversation(
         client=client,  # type: ignore[arg-type]
         agent_id=agent_id,
         requires_auth=False,
         audio_interface=_SilentAudio(),
+        client_tools=client_tools,
         callback_agent_response=on_agent_response,
         callback_end_session=on_session_end,
     )
@@ -100,13 +108,15 @@ async def ask_agent(text: str) -> str:
         # any trailing chunks.
         try:
             await asyncio.wait_for(
-                response_done.wait(), timeout=_RESPONSE_TIMEOUT,
+                response_done.wait(),
+                timeout=_RESPONSE_TIMEOUT,
             )
             # Grace period for trailing chunks.
             await asyncio.sleep(2)
         except TimeoutError:
             logger.warning(
-                "Agent response timed out after %ds", _RESPONSE_TIMEOUT,
+                "Agent response timed out after %ds",
+                _RESPONSE_TIMEOUT,
             )
     finally:
         with contextlib.suppress(Exception):
