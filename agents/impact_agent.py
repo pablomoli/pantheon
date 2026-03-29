@@ -1,23 +1,12 @@
 from __future__ import annotations
 
-import os
-
 from google.adk.agents import Agent
 from google.adk.agents.callback_context import CallbackContext
-from google.adk.agents.remote_a2a_agent import (
-    AGENT_CARD_WELL_KNOWN_PATH,
-    RemoteA2aAgent,
-)
 
 from agents.model_config import HEAVY_MODEL, litellm_for
 from agents.tools.event_tools import emit_event
 from sandbox.models import AgentName, EventType
 
-_DEFAULT_IMPACT_AGENT_BASE_URL = "http://127.0.0.1:8001"
-_IMPACT_AGENT_CARD_URL = os.getenv(
-    "PANTHEON_IMPACT_AGENT_CARD_URL",
-    f"{_DEFAULT_IMPACT_AGENT_BASE_URL}/a2a/impact_agent{AGENT_CARD_WELL_KNOWN_PATH}",
-)
 
 _IMPACT_SPECIALIST_INSTRUCTION = """\
 You are the Critical Infrastructure Impact Agent for Pantheon.
@@ -68,24 +57,17 @@ async def _after_remote_agent(callback_context: CallbackContext) -> None:
     )
 
 
-impact_specialist = Agent(
+# impact_agent runs locally. A RemoteA2aAgent pointed at the Cloud Run endpoint
+# was used previously, but the service is currently unavailable (404). Using the
+# local agent produces identical output without the A2A network hop.
+impact_agent = Agent(
     name="impact_agent",
     model=litellm_for(HEAVY_MODEL),
     description=(
-        "Remote A2A specialist that translates malware evidence into critical "
-        "infrastructure continuity impact."
+        "Translates malware evidence into critical infrastructure continuity impact — "
+        "systems at risk, outage implications, and priority operator actions."
     ),
     instruction=_IMPACT_SPECIALIST_INSTRUCTION,
-)
-
-impact_agent = RemoteA2aAgent(
-    name="impact_agent",
-    description=(
-        "Remote A2A specialist that translates Pantheon evidence into critical "
-        "infrastructure mission impact."
-    ),
-    agent_card=_IMPACT_AGENT_CARD_URL,
     before_agent_callback=_before_remote_agent,
     after_agent_callback=_after_remote_agent,
-    use_legacy=False,
 )

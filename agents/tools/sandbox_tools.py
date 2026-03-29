@@ -184,11 +184,31 @@ async def get_iocs(job_id: str) -> dict[str, Any]:  # Any: pydantic model_dump()
         job_id=job_id,
         payload={"job_id": job_id},
     )
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(f"{_SANDBOX_URL}/sandbox/iocs/{job_id}")
-        resp.raise_for_status()
-        ioc_report = IOCReport.model_validate(resp.json())
-    ioc_report_dict = ioc_report.model_dump()
+    ioc_report_dict: dict[str, Any]
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(f"{_SANDBOX_URL}/sandbox/iocs/{job_id}")
+            resp.raise_for_status()
+            ioc_report = IOCReport.model_validate(resp.json())
+        ioc_report_dict = ioc_report.model_dump()
+    except httpx.HTTPStatusError as exc:
+        # IOC extraction may not have run yet (job still running or sandbox skipped it).
+        # Return an empty report so Apollo can proceed using ThreatReport data instead.
+        logger.warning(
+            "get_iocs: sandbox returned %s for job %s — proceeding with empty IOC list",
+            exc.response.status_code,
+            job_id,
+        )
+        ioc_report_dict = {
+            "ips": [],
+            "domains": [],
+            "file_hashes": {},
+            "file_paths": [],
+            "ports": [],
+            "registry_keys": [],
+            "cve_ids": [],
+            "urls": [],
+        }
     await emit_event(
         EventType.TOOL_RESULT,
         agent=AgentName.APOLLO,

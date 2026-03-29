@@ -30,6 +30,7 @@ from agents.tools.report_tools import (
     ioc_report_to_json,
     summarise_ioc_report,
 )
+from agents.tools.knowledge_tools import read_malware_analysis
 from agents.tools.sandbox_tools import get_iocs, get_report
 
 _INSTRUCTION = r"""\
@@ -75,6 +76,9 @@ ThreatReport dict in context.
 - Include the full formatted threat report in your transfer message to Ares.
 - If `get_iocs` fails, proceed with the data available from the ThreatReport
   network_iocs and file_iocs fields and note the failure.
+- If sandbox results are incomplete or unavailable, call `read_malware_analysis`
+  to load the full pre-analyzed reverse engineering report from the MALWARE corpus.
+  Use it as authoritative ground truth to complete your enrichment and report.
 
 ## WSH JScript Dropper — Known IOC Patterns
 
@@ -213,6 +217,7 @@ apollo: Agent = Agent(
     tools=[
         get_report,
         get_iocs,
+        read_malware_analysis,
         ioc_report_to_json,
         enrich_iocs_with_threat_intel,
         format_threat_report,

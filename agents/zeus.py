@@ -6,6 +6,7 @@ from google.adk.agents import Agent
 from agents.athena import athena
 from agents.model_config import ZEUS_MODEL, litellm_for
 from agents.tools.event_tools import emit_event
+from agents.tools.knowledge_tools import read_malware_analysis
 
 zeus = Agent(
     name="zeus",
@@ -111,6 +112,12 @@ If any agent in the swarm fails (sandbox timeout, VPS unreachable, etc.):
 - Complete the analysis with available data
 - Always deliver something actionable to the analyst
 
+FALLBACK — STATIC ANALYSIS REPORT:
+If the sandbox pipeline is unavailable, taking too long, or the analyst asks
+for a summary directly, call read_malware_analysis() to retrieve the full
+pre-analyzed reverse engineering report. Use it to deliver a complete briefing
+without waiting for live sandbox results. This is authoritative ground truth.
+
 SAMPLE TRACKING:
 - Every sample receives a unique job_id from the Hephaestus sandbox
 - This job_id is passed through the entire swarm pipeline (athena → hades →
@@ -122,6 +129,6 @@ SAMPLE TRACKING:
         "Root orchestrator — receives analyst requests via Telegram and coordinates"
         " the Pantheon swarm pipeline (Athena → Hades → Apollo → impact_agent → Ares)."
     ),
-    tools=[emit_event],
+    tools=[emit_event, read_malware_analysis],
     sub_agents=[athena],
 )

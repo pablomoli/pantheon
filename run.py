@@ -75,7 +75,14 @@ def _should_start_sandbox() -> bool:
 
 
 async def _run_bot() -> None:
-    """Start the Telegram bot in polling mode."""
+    """Start the Telegram bot in polling mode.
+
+    Conflict note (409 "terminated by other getUpdates request"):
+    Telegram keeps the previous long-poll connection open for up to ~30 s after the
+    previous process exits. Restarting immediately causes constant 409s until that
+    connection expires. Always wait at least 32 s between process restarts to avoid
+    this — the conflict is self-inflicted, not caused by a second instance.
+    """
     from gateway.bot import build_app
 
     tg_app = build_app()
@@ -161,6 +168,27 @@ async def _main() -> None:
     await asyncio.gather(*tasks)
 
 
+class _ConflictFilter(logging.Filter):
+    """Downgrade Telegram 409 Conflict errors to DEBUG.
+
+    PTB logs a full ERROR traceback every time the long-poll connection conflicts
+    with a stale connection from a previous process. These are self-resolving
+    within ~30 s and add no signal — only noise. Suppress them at the logger
+    level so they don't obscure real errors.
+
+    PTB's message is "Exception happened while polling for updates." — the word
+    "Conflict" only appears in exc_info, so we check the exception class name.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.ERROR:
+            exc_type = (record.exc_info or (None,))[0]
+            is_conflict = exc_type is not None and "Conflict" in exc_type.__name__
+            if is_conflict or "Conflict" in record.getMessage():
+                return False  # drop entirely — self-resolving, adds no signal
+        return True
+
+
 def main() -> None:
     load_dotenv()
     _check_env()
@@ -169,6 +197,10 @@ def main() -> None:
         level=os.getenv("LOG_LEVEL", "INFO"),
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     )
+
+    # Suppress PTB 409 Conflict spam — stale connections self-resolve within 30s.
+    logging.getLogger("telegram.ext.Updater").addFilter(_ConflictFilter())
+    logging.getLogger("telegram.ext._updater").addFilter(_ConflictFilter())
 
     _root_log = logging.getLogger(__name__)
     _warn_adk_config(_root_log)

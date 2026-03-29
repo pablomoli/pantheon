@@ -32,9 +32,16 @@ def _looks_like_pantheon_activation(text: str) -> bool:
         "activate pantheon",
         "analyze malware",
         "analyse malware",
+        "analyze the malware",
+        "analyse the malware",
         "analyze sample",
         "analyse sample",
+        "analyze the sample",
+        "analyse the sample",
         "run analysis",
+        "the malware",
+        "start analysis",
+        "begin analysis",
     )
     return any(marker in lowered for marker in activation_markers)
 
