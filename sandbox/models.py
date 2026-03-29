@@ -205,7 +205,7 @@ class PantheonEvent(BaseModel):
     agent: AgentName | None = None
     tool: str | None = None
     job_id: str | None = None
-    payload: dict[str, Any] = Field(default_factory=dict)
+    payload: dict[str, Any] = Field(default_factory=dict)  # Any: payload schema varies per EventType
 
 
 class ProcessEvent(BaseModel):

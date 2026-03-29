@@ -26,7 +26,7 @@ def test_pantheon_event_serializes_to_json() -> None:
         job_id="abc123",
         payload={"file_path": "/tmp/sample.js"},
     )
-    data = event.model_dump()
+    data = event.model_dump(mode="json")
     assert data["type"] == "tool_called"
     assert data["agent"] == "hades"
     assert data["payload"]["file_path"] == "/tmp/sample.js"
