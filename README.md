@@ -263,6 +263,227 @@ flowchart TB
 
 ---
 
+## Agent Diagrams
+
+### Agent Sub-Agent Hierarchy (ADK Structure)
+
+The Google ADK wires agents together through `sub_agents`. Zeus owns the tree root; each layer can only call downward. The Ares workflow is a `SequentialAgent` that contains a `ParallelAgent` and a `LoopAgent` as ADK-native primitives.
+
+```mermaid
+graph TD
+    Zeus["Zeus\nRoot Orchestrator\nSequentialAgent"] --> Athena["Athena\nTriage + Severity Classification"]
+    Athena --> Hades["Hades\nSandbox + VPS Analysis"]
+    Hades --> Apollo["Apollo\nIOC Extraction + Intel Enrichment"]
+    Apollo --> Impact["impact_agent\nInfrastructure Continuity Impact"]
+    Apollo --> Ares["ares — SequentialAgent\nResponse Planning Workflow"]
+
+    subgraph Ares_Workflow["Ares Workflow"]
+        Preparer["ares_context_preparer\nExtract + normalize context"] --> Parallel
+        subgraph Parallel["ares_planning_parallel — ParallelAgent"]
+            C["ares_containment"]
+            R["ares_remediation"]
+            P["ares_prevention"]
+        end
+        Parallel --> Loop
+        subgraph Loop["ares_refinement_loop — LoopAgent (max 2)"]
+            V["ares_verifier"] --> Rev["ares_reviser"]
+            Rev --> V
+        end
+        Loop --> Assembler["ares_assembler\nFinal incident document"]
+    end
+
+    Ares --> Preparer
+
+    classDef god fill:#1a1a2e,stroke:#c9a227,stroke-width:2px,color:#e8d5a3
+    classDef workflow fill:#0d2137,stroke:#537ec5,stroke-width:1px,color:#c5cae9
+    class Zeus,Athena,Hades,Apollo,Impact god
+    class Preparer,C,R,P,V,Rev,Assembler workflow
+```
+
+---
+
+### Analysis Pipeline — Sequence Diagram
+
+Every message passes from Hermes to Zeus and through the agent chain. Data accumulated at each stage is forwarded in the transfer context so no agent needs to re-fetch what upstream already produced.
+
+```mermaid
+sequenceDiagram
+    participant Op as Operator
+    participant Hermes
+    participant Zeus
+    participant Athena
+    participant Hades
+    participant Heph as Hephaestus Sandbox
+    participant Apollo
+    participant Impact as impact_agent
+    participant Ares
+
+    Op->>Hermes: submit sample (file / text / voice)
+    Hermes->>Zeus: route via ADK Runner
+    Zeus-->>Op: "Copy. Analyzing sample now."
+    Zeus->>Athena: transfer — sample path + job context
+    Athena->>Athena: classify severity, open INC ticket
+    Athena->>Hades: INC ticket + severity level
+    Hades->>Heph: submit_sample() — POST /sandbox/analyze
+    Heph-->>Hades: job_id
+    Hades->>Heph: poll_report() — GET /sandbox/report/{id}
+    Heph-->>Hades: ThreatReport (static + dynamic results)
+    Note over Hades,Heph: Optional: SSH to Windows VPS for live detonation
+    Hades->>Apollo: ThreatReport + job_id
+    Apollo->>Heph: get_iocs() — GET /sandbox/iocs/{id}
+    Heph-->>Apollo: IOCReport (IPs, domains, hashes, registry keys)
+    Apollo->>Apollo: enrich_iocs_with_threat_intel()
+    Apollo->>Apollo: format_threat_report()
+    Apollo->>Impact: enriched report + ThreatReport
+    Impact-->>Apollo: infrastructure continuity assessment
+    Apollo->>Ares: full context — report + enrichment + impact analysis
+    Ares->>Ares: parallel planning + verifier loop
+    Ares-->>Zeus: complete incident response document
+    Zeus-->>Op: operator briefing (text + voice via ElevenLabs)
+```
+
+---
+
+### Ares Response Planning Workflow
+
+Ares uses three ADK primitives in sequence: a `ParallelAgent` for simultaneous planning, a `LoopAgent` for self-correction, and a final assembler agent. This is the deepest use of ADK's structured workflow primitives in the system.
+
+```mermaid
+flowchart TD
+    Apollo["Apollo\nIOC Enrichment + Threat Report"] -->|enriched context handoff| Prep
+
+    subgraph Ares["Ares — SequentialAgent"]
+        Prep["ares_context_preparer\nextract_threat_summary_for_ares\nload_prior_runs / synthesize_prior_runs"]
+
+        Prep --> Par
+
+        subgraph Par["ares_planning_parallel — ParallelAgent"]
+            direction LR
+            C["ares_containment\nNetwork isolation\nProcess termination\nFirewall + EDR rules"]
+            R["ares_remediation\nFile cleanup\nRegistry repair\nCredential rotation"]
+            P["ares_prevention\nYARA rules\nSigma detections\nGPO hardening\nEDR tuning"]
+        end
+
+        Par --> Ref
+
+        subgraph Ref["ares_refinement_loop — LoopAgent max_iterations=2"]
+            Ver["ares_verifier\nScores plan completeness\nflags gaps or contradictions"]
+            Rev["ares_reviser\nPatches failing sections\nadds missing controls"]
+            Ver -->|needs revision| Rev
+            Rev -->|revised plan| Ver
+        end
+
+        Ref -->|approved| Asm["ares_assembler\nCompiles full incident response doc\nContainment + Remediation + Prevention + Impact"]
+    end
+
+    Asm --> Zeus["Zeus\nFinal operator briefing"]
+```
+
+---
+
+### Real-Time Event System + Kafka Pipeline
+
+Every agent action emits a structured `PantheonEvent` via a fire-and-forget HTTP POST to Hephaestus. The EventBus broadcasts to all WebSocket clients and mirrors every event to a Kafka topic for durable replay, downstream SIEM integration, and post-incident forensics.
+
+```mermaid
+flowchart LR
+    subgraph Agents["Agent Layer"]
+        direction TB
+        AthE["Athena"]
+        HadE["Hades"]
+        ApoE["Apollo"]
+        AreE["Ares"]
+    end
+
+    subgraph EmitLib["emit_event() — agents/tools/event_tools.py"]
+        direction TB
+        FnE["fire-and-forget\nhttpx.AsyncClient\nPOST /events\nnon-blocking"]
+    end
+
+    subgraph Hephaestus["Hephaestus Sandbox Service"]
+        direction TB
+        EP["POST /events\nevent ingest endpoint"]
+        EB["EventBus\nasyncio pub/sub\nasyncio.Queue per client"]
+        WS["GET /ws\nWebSocket broadcast\nauto-reconnect"]
+        SR["StreamReplicator\nfire-and-forget\nKafka producer"]
+    end
+
+    subgraph Kafka["Kafka — Durable Event Log"]
+        direction TB
+        KT["Topic: pantheon.events\nPantheonEvent records\nreplay / SIEM integration"]
+    end
+
+    subgraph Dashboard["Live Dashboard — Next.js"]
+        direction TB
+        WSC["pantheon-ws.ts\nWebSocket client\nauto-reconnect"]
+        ES["EventStore\nagent status\nhandoff tracking\nIOC accumulation"]
+        OF["OlympusFlow\nReact Flow canvas\npulse on active agents\nedge animation on handoff"]
+        DC["DivineChronicle\nevent feed — auto-scroll\ncolor-coded by type"]
+    end
+
+    Agents -->|"AGENT_ACTIVATED\nTOOL_CALLED\nTOOL_RESULT\nHANDOFF\nAGENT_COMPLETED"| EmitLib
+    EmitLib --> EP
+    EP --> EB
+    EB --> WS
+    EB -.->|"mirror — PANTHEON_STREAM_BACKEND=kafka"| SR
+    SR -->|aiokafka producer| KT
+    WS -->|"PantheonEvent JSON"| WSC
+    WSC --> ES
+    ES --> OF
+    ES --> DC
+
+    style KT fill:#1a0d00,stroke:#ff6b00,stroke-width:2px,color:#ffcc99
+    style SR fill:#1a0d00,stroke:#ff6b00,stroke-width:1px,color:#ffcc99
+```
+
+---
+
+### Tool-to-Agent Map
+
+Each agent has a specific, bounded toolset. No agent has access to tools outside its domain — containment is enforced at the `tools=[]` list in each ADK `Agent` constructor.
+
+```mermaid
+flowchart TD
+    subgraph Zeus["Zeus — Orchestrator"]
+        Z1["emit_event\nBroadcast agent lifecycle events"]
+        Z2["read_malware_analysis\nFallback static report from MALWARE/discoveries.md"]
+    end
+
+    subgraph Athena["Athena — Triage"]
+        A1["emit_event"]
+        A2["triage_tools\nSeverity classification + INC ticket creation"]
+    end
+
+    subgraph Hades["Hades — Dynamic Analysis"]
+        H1["submit_sample\nPOST /sandbox/analyze"]
+        H2["poll_report\nGET /sandbox/report/{id} — polling loop"]
+        H3["get_report\nSingle report fetch"]
+        H4["check_sandbox_health\nGET /sandbox/health"]
+        H5["vps_tools\nSSH + Procmon + FakeNet-NG + Wireshark"]
+        H6["emit_event"]
+    end
+
+    subgraph Apollo["Apollo — IOC Intelligence"]
+        AP1["get_iocs\nGET /sandbox/iocs/{id}"]
+        AP2["read_malware_analysis\nFallback to static report on sandbox failure"]
+        AP3["enrich_iocs_with_threat_intel\nGemini-powered threat actor correlation"]
+        AP4["format_threat_report\nStructured markdown report generation"]
+        AP5["summarise_ioc_report\nOne-paragraph IOC summary"]
+        AP6["memory_tools\nload_prior_runs / store_agent_output / synthesize_prior_runs"]
+        AP7["emit_event"]
+    end
+
+    subgraph Ares_Sub["Ares Sub-Agents"]
+        AR1["ares_containment\nremediation_tools — network + process"]
+        AR2["ares_remediation\nremediation_tools — file + registry"]
+        AR3["ares_prevention\nremediation_tools — YARA + Sigma + GPO"]
+        AR4["ares_verifier / ares_reviser\nself-correction loop"]
+        AR5["ares_assembler\nfinal document compilation"]
+    end
+```
+
+---
+
 ## Safety
 
 **The malware sample (6108674530.JS.malicious) must never be executed directly on any machine.**
