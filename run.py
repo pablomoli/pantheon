@@ -20,7 +20,10 @@ from dotenv import load_dotenv
 
 
 def _check_env() -> None:
-    """Warn about missing environment variables (non-fatal)."""
+    """Warn about missing environment variables when strict mode is enabled."""
+    if os.getenv("PANTHEON_STRICT_ENV") != "1":
+        return
+
     required = ["TELEGRAM_BOT_TOKEN", "ELEVENLABS_API_KEY"]
     missing = [k for k in required if not os.getenv(k)]
     if missing:
@@ -76,15 +79,19 @@ async def _main() -> None:
     logger = logging.getLogger(__name__)
     tasks: list[asyncio.Task[None]] = []
 
-    # Always start the Telegram bot.
-    tasks.append(asyncio.create_task(_run_bot()))
+    # Hermes Telegram bot (requires TELEGRAM_BOT_TOKEN).
+    if os.getenv("TELEGRAM_BOT_TOKEN"):
+        tasks.append(asyncio.create_task(_run_bot()))
+        logger.info("Hermes Telegram bot enabled")
+    else:
+        logger.info("TELEGRAM_BOT_TOKEN not set — Telegram bot disabled")
 
-    # Voice call Mini App (requires WEBAPP_BASE_URL).
-    if os.getenv("WEBAPP_BASE_URL"):
+    # Voice call Mini App (requires WEBAPP_BASE_URL and ELEVENLABS_API_KEY).
+    if os.getenv("WEBAPP_BASE_URL") and os.getenv("ELEVENLABS_API_KEY"):
         tasks.append(asyncio.create_task(_run_webapp()))
         logger.info("WebApp starting on port %s", os.getenv("WEBAPP_PORT", "8443"))
     else:
-        logger.info("WEBAPP_BASE_URL not set — voice call Mini App disabled")
+        logger.info("WEBAPP_BASE_URL or ELEVENLABS_API_KEY not set — voice call Mini App disabled")
 
     # Sandbox API (requires sandbox.main to exist).
     try:
@@ -94,6 +101,10 @@ async def _main() -> None:
         logger.info("Hephaestus sandbox API starting on port 9000")
     except ImportError:
         logger.info("sandbox.main not available — sandbox API disabled")
+
+    if not tasks:
+        logger.error("No services enabled. Set env vars or ensure sandbox.main is available.")
+        return
 
     await asyncio.gather(*tasks)
 
