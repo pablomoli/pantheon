@@ -38,6 +38,17 @@ logger = logging.getLogger("hephaestus")
 _LOG_STREAMING_INSTALLED = False
 
 
+def _is_noisy_telemetry(command: str | None, output: str | None, message: str | None) -> bool:
+    """Return True for low-value telemetry chatter that should not be broadcast."""
+    normalized_command = (command or "").strip().lower()
+    normalized_output = (output or "").strip().lower()
+    normalized_message = (message or "").strip().lower()
+    return normalized_command == "heartbeat" or any(
+        token == "heartbeat: hephaestus alive"
+        for token in (normalized_output, normalized_message)
+    )
+
+
 def _emit_telemetry(
     message: str,
     *,
@@ -242,6 +253,15 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 @app.post("/events", status_code=204)
 async def receive_event(event: PantheonEvent) -> None:
     """Accept an event from any agent and broadcast it to all /ws subscribers."""
+    if event.type == EventType.TELEMETRY:
+        payload = event.payload
+        if _is_noisy_telemetry(
+            payload.get("command") if isinstance(payload.get("command"), str) else None,
+            payload.get("output") if isinstance(payload.get("output"), str) else None,
+            payload.get("message") if isinstance(payload.get("message"), str) else None,
+        ):
+            return
+
     if event.type != EventType.TELEMETRY:
         _emit_telemetry(
             f"EVENT {event.type.value} agent={event.agent.value if event.agent else 'unknown'} tool={event.tool or '-'}",

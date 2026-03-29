@@ -12,7 +12,7 @@ from gateway import bot
 
 
 @pytest.fixture(autouse=True)
-def _clean_active() -> None:  # type: ignore[misc]
+def _clean_active() -> None:
     bot._active_analyses.clear()
 
 
@@ -90,7 +90,7 @@ async def test_cmd_status_active() -> None:
 async def test_handle_text(mock_agent: AsyncMock, mock_speak: AsyncMock) -> None:
     update = _make_update(user_id=10, text="hello")
     await bot.handle_text(update, MagicMock())
-    mock_agent.assert_awaited_once_with("10", "hello")
+    mock_agent.assert_awaited_once_with("10", "hello", force_adk=False)
     update.effective_chat.send_message.assert_awaited()
     # Text replies now also include voice.
     mock_speak.assert_awaited_once()
@@ -119,7 +119,12 @@ async def test_handle_document_accepted_ext(
 
     # Should have sent the "Received" acknowledgement + the analysis reply.
     assert update.effective_chat.send_message.await_count >= 2
-    mock_agent.assert_awaited_once()
+    expected_file = tmp_path / "20" / "sample.js"
+    mock_agent.assert_awaited_once_with(
+        "20",
+        f"analyze the malware sample at {expected_file}",
+        force_adk=True,
+    )
 
 
 async def test_handle_document_rejected_ext() -> None:
@@ -157,7 +162,7 @@ async def test_handle_voice_full_pipeline(
     update = _make_audio_update(user_id=5, media_attr="voice")
     await bot.handle_voice(update, MagicMock())
     mock_transcribe.assert_awaited_once()
-    mock_agent.assert_awaited_once_with("5", "hello world")
+    mock_agent.assert_awaited_once_with("5", "hello world", force_adk=False)
     # Should send "I heard: ..." + agent text + voice.
     assert update.effective_chat.send_message.await_count >= 2
 

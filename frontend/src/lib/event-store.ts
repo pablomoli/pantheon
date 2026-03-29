@@ -127,6 +127,10 @@ export class EventStore {
       agent: event.agent?.toLowerCase() as AgentName,
     };
 
+    if (this.shouldDropEvent(normalizedEvent)) {
+      return;
+    }
+
     this.events.push(normalizedEvent);
 
     // Update agent status
@@ -342,6 +346,20 @@ export class EventStore {
     const normalizedCommand = (command || "").trim().toLowerCase();
     const normalizedOutput = output.trim().toLowerCase();
     return normalizedCommand === "heartbeat" || normalizedOutput === "heartbeat: hephaestus alive";
+  }
+
+  private shouldDropEvent(event: PantheonEvent): boolean {
+    if (event.type !== "TELEMETRY") {
+      return false;
+    }
+
+    const payload = event.payload || {};
+    const command = typeof payload.command === "string" ? payload.command : undefined;
+    const output = typeof payload.output === "string"
+      ? payload.output
+      : (typeof payload.message === "string" ? payload.message : "");
+
+    return this.isHeartbeatTelemetry(command, output);
   }
 
   private describeEvent(event: PantheonEvent): {

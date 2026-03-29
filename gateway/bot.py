@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Coroutine
 from pathlib import Path
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -31,6 +32,15 @@ logger = logging.getLogger(__name__)
 
 # Track which users have an analysis in flight.
 _active_analyses: set[str] = set()
+
+# Strongrefs for fire-and-forget emit_event tasks (RUF006 / GC safety).
+_emit_background_tasks: set[asyncio.Task[None]] = set()
+
+
+def _spawn_emit_task(coro: Coroutine[object, None, None]) -> None:
+    task = asyncio.create_task(coro)
+    _emit_background_tasks.add(task)
+    task.add_done_callback(_emit_background_tasks.discard)
 
 SAMPLES_DIR = Path(os.getenv("SAMPLES_DIR", "/tmp/samples"))
 ALLOWED_EXTENSIONS = frozenset({".malicious", ".js", ".zip", ".exe"})
@@ -118,6 +128,8 @@ async def _send_with_typing(
     update: Update,
     user_id: str,
     prompt: str,
+    *,
+    force_adk: bool = False,
 ) -> None:
     """Run the agent pipeline with a typing indicator and an intermediate
     status message if the response takes longer than *LONG_ANALYSIS_SECONDS*.
@@ -128,24 +140,26 @@ async def _send_with_typing(
     _active_analyses.add(user_id)
     try:
         # Fire-and-forget: Hermes should appear in the dashboard graph immediately.
-        asyncio.create_task(
+        _spawn_emit_task(
             emit_event(
                 EventType.AGENT_ACTIVATED.value,
                 agent=AgentName.HERMES.value,
                 payload={"step": f"telegram_prompt:{prompt[:120]}"},
-            )
+            ),
         )
         # Emit handoff from Hermes → Zeus so the dashboard shows the transfer.
-        asyncio.create_task(
+        _spawn_emit_task(
             emit_event(
                 EventType.HANDOFF.value,
                 agent=AgentName.HERMES.value,
                 payload={"from": "hermes", "to": "zeus"},
-            )
+            ),
         )
 
         # Fire off the agent call and a delayed status update concurrently.
-        response_task = asyncio.create_task(get_agent_response(user_id, prompt))
+        response_task = asyncio.create_task(
+            get_agent_response(user_id, prompt, force_adk=force_adk),
+        )
 
         # Typing indicator — Telegram shows "typing…" for ~5 s per call.
         await chat.send_action(ChatAction.TYPING)
@@ -160,11 +174,11 @@ async def _send_with_typing(
         response_text = await response_task
 
         # Mark Hermes as completed in the dashboard.
-        asyncio.create_task(
+        _spawn_emit_task(
             emit_event(
                 EventType.AGENT_COMPLETED.value,
                 agent=AgentName.HERMES.value,
-            )
+            ),
         )
 
         # Always send the text response first.
@@ -293,7 +307,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
     prompt = f"analyze the malware sample at {file_path}"
-    await _send_with_typing(update, user_id, prompt)
+    await _send_with_typing(update, user_id, prompt, force_adk=True)
 
 
 # ---------------------------------------------------------------------------
