@@ -7,6 +7,7 @@ import { EventStore, PantheonEvent } from "./event-store";
 
 export class PantheonWebSocket {
   private url: string;
+  private fallbackUrl: string | null = null;
   private ws: WebSocket | null = null;
   private store: EventStore;
   private reconnectAttempts = 0;
@@ -15,20 +16,78 @@ export class PantheonWebSocket {
   private handlers: Map<string, (event: PantheonEvent) => void> = new Map();
   private sandboxUrl: string;
 
+  private resolveBaseUrl(configuredUrl: string): URL {
+    const fallback = typeof window !== "undefined"
+      ? new URL(window.location.origin)
+      : new URL("http://localhost:9000");
+
+    try {
+      const configured = new URL(configuredUrl);
+
+      // We explicitly trust the configured URL from environment parameters
+      return configured;
+    } catch {
+      return fallback;
+    }
+  }
+
   constructor(sandboxUrl: string, store: EventStore) {
     this.sandboxUrl = sandboxUrl;
     // Convert HTTP URL to WebSocket URL
-    const url = new URL(sandboxUrl);
+    const url = this.resolveBaseUrl(sandboxUrl);
     this.url = `${url.protocol === "https:" ? "wss:" : "ws:"}//${url.host}/ws`;
+
+    if (typeof window !== "undefined") {
+      const originWs = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
+      if (originWs !== this.url) {
+        this.fallbackUrl = originWs;
+      }
+    }
+
     this.store = store;
     console.log(`[Pantheon WS] Configured to connect to: ${this.url}`);
+    if (this.fallbackUrl) {
+      console.log(`[Pantheon WS] Fallback endpoint: ${this.fallbackUrl}`);
+    }
   }
 
   connect(): Promise<void> {
+    const candidates = [this.url, this.fallbackUrl].filter((u): u is string => Boolean(u));
+
+    return new Promise((resolve, reject) => {
+      const tryConnect = (index: number) => {
+        if (index >= candidates.length) {
+          const details = candidates.join(", ");
+          const error = new Error(
+            `WebSocket connection failed for all endpoints: ${details}. Check NEXT_PUBLIC_SANDBOX_URL, nginx /ws proxy, and firewall rules.`
+          );
+          this.store.addEvent({
+            type: "error",
+            agent: "hephaestus",
+            payload: { message: error.message },
+          });
+          reject(error);
+          return;
+        }
+
+        const targetUrl = candidates[index];
+        this.openSocket(targetUrl)
+          .then(resolve)
+          .catch((error) => {
+            console.error(`[Pantheon WS] Candidate failed (${targetUrl}):`, error);
+            tryConnect(index + 1);
+          });
+      };
+
+      tryConnect(0);
+    });
+  }
+
+  private openSocket(targetUrl: string): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        console.log(`[Pantheon WS] Attempting connection to ${this.url}...`);
-        this.ws = new WebSocket(this.url);
+        console.log(`[Pantheon WS] Attempting connection to ${targetUrl}...`);
+        this.ws = new WebSocket(targetUrl);
 
         // Set a timeout to detect failed connections (no error event fires for unreachable hosts)
         const connectionTimeout = setTimeout(() => {
@@ -36,7 +95,7 @@ export class PantheonWebSocket {
             this.ws.close();
             reject(
               new Error(
-                `WebSocket connection timeout. Is Hephaestus running at ${this.sandboxUrl}? ` +
+                `WebSocket connection timeout. Is Hephaestus running at ${targetUrl}? ` +
                 `Check: NEXT_PUBLIC_SANDBOX_URL in .env.local`
               )
             );
@@ -45,23 +104,25 @@ export class PantheonWebSocket {
 
         this.ws.onopen = () => {
           clearTimeout(connectionTimeout);
-          console.log(`[Pantheon WS] ✓ Connected to ${this.url}`);
+          this.url = targetUrl;
+          console.log(`[Pantheon WS] ✓ Connected to ${targetUrl}`);
           this.reconnectAttempts = 0;
           resolve();
         };
 
         this.ws.onmessage = (event) => {
           try {
+            console.log("[Pantheon WS] Received event:", event.data);
             const message = JSON.parse(event.data) as PantheonEvent;
             this.handleMessage(message);
           } catch (error) {
-            console.error("[Pantheon WS] Failed to parse message:", error);
+            console.error("[Pantheon WS] Failed to parse message:", error, event.data);
           }
         };
 
         this.ws.onerror = (error) => {
           clearTimeout(connectionTimeout);
-          const errorMsg = `WebSocket connection failed to ${this.url}. ` +
+          const errorMsg = `WebSocket connection failed to ${targetUrl}. ` +
             `Ensure Hephaestus is running and NEXT_PUBLIC_SANDBOX_URL is correct. ` +
             `Error: ${error instanceof Event ? error.type : String(error)}`;
           console.error("[Pantheon WS]", errorMsg);

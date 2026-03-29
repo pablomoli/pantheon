@@ -195,6 +195,9 @@ class AgentName(str, Enum):
     APOLLO = "apollo"
     ARES = "ares"
     HERMES = "hermes"
+    ARTEMIS = "artemis"
+    HEPHAESTUS = "hephaestus"
+    MUSE = "muse"
 
 
 class PantheonEvent(BaseModel):

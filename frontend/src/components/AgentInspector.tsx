@@ -19,6 +19,7 @@ import {
   Eye,
   Wrench,
   LayoutGrid,
+  Mic,
   type LucideIcon,
 } from 'lucide-react';
 import { AgentName, AgentStatus } from '@/lib/event-store';
@@ -32,6 +33,7 @@ const AGENT_META: Record<AgentName, { icon: LucideIcon; color: string; label: st
   hermes:     { icon: Radio,        color: '#34D399', label: 'Hermes',     role: 'Gateway & Voice'   },
   artemis:    { icon: Eye,          color: '#F472B6', label: 'Artemis',    role: 'Sentinel Daemon'   },
   hephaestus: { icon: Wrench,       color: '#94A3B8', label: 'Hephaestus', role: 'Sandbox Forge'     },
+  muse:       { icon: Mic,          color: '#D946EF', label: 'Muse',       role: 'Voice Module'      },
 };
 
 export default function AgentInspector({ agent }: { agent: AgentStatus | null }) {
@@ -51,7 +53,7 @@ export default function AgentInspector({ agent }: { agent: AgentStatus | null })
     );
   }
 
-  const meta = AGENT_META[agent.name];
+  const meta = AGENT_META[agent.name] || { icon: Eye, color: '#A1A1AA', label: (agent.name || 'Unknown').toUpperCase(), role: 'Unknown Agent' };
   const sandboxUrl = process.env.NEXT_PUBLIC_SANDBOX_URL || 'http://localhost:9000';
 
   const sendCommand = async (command: string) => {

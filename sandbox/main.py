@@ -1,14 +1,17 @@
 """Hephaestus — FastAPI sandbox service."""
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
+from collections.abc import Awaitable, Callable
+from contextlib import asynccontextmanager
 
 import docker
 import docker.errors
-from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import asyncio
+from fastapi.responses import Response
 
 from sandbox.analyzer import Analyzer
 from sandbox.events import bus
@@ -32,23 +35,91 @@ logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
 )
 logger = logging.getLogger("hephaestus")
+_LOG_STREAMING_INSTALLED = False
+
+
+def _emit_telemetry(
+    message: str,
+    *,
+    command: str | None = None,
+    stream: str = "stdout",
+    level: str = "info",
+) -> None:
+    payload: dict[str, str] = {
+        "message": message,
+        "output": message,
+        "stream": stream,
+        "level": level,
+    }
+    if command:
+        payload["command"] = command
+    bus.publish(
+        PantheonEvent(
+            type=EventType.TELEMETRY,
+            agent=AgentName.HEPHAESTUS,
+            payload=payload,
+        )
+    )
+
+
+class _EventBusLogHandler(logging.Handler):
+    """Forward server log lines to dashboard telemetry."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.name.startswith("hephaestus.events"):
+            return
+        try:
+            message = self.format(record)
+        except Exception:
+            return
+        stream = "stderr" if record.levelno >= logging.ERROR else "stdout"
+        _emit_telemetry(
+            message,
+            stream=stream,
+            level=record.levelname.lower(),
+        )
+
+
+def _install_log_streaming() -> None:
+    global _LOG_STREAMING_INSTALLED
+    if _LOG_STREAMING_INSTALLED:
+        return
+
+    handler = _EventBusLogHandler(level=logging.INFO)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+    )
+    logging.getLogger().addHandler(handler)
+    _LOG_STREAMING_INSTALLED = True
+
+
+async def _telemetry_heartbeat() -> None:
+    """Emit periodic keepalive lines so the dashboard terminal stays visibly live."""
+    while True:
+        _emit_telemetry("heartbeat: hephaestus alive", command="heartbeat", stream="stdout")
+        await asyncio.sleep(5)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from agents.artemis import Artemis
     from agents.worker import _on_new_sample, swarm_worker_loop
 
+    _install_log_streaming()
+    _emit_telemetry("Hephaestus boot complete", command="uvicorn sandbox.main:app")
+
     artemis_daemon = Artemis(on_new_sample=_on_new_sample)
     
     # Start the background tasks
     artemis_task = asyncio.create_task(artemis_daemon.run())
     worker_task = asyncio.create_task(swarm_worker_loop())
+    heartbeat_task = asyncio.create_task(_telemetry_heartbeat())
     
     yield
     
     # Cancel tasks on shutdown
     artemis_task.cancel()
     worker_task.cancel()
+    heartbeat_task.cancel()
 
 app = FastAPI(
     title="Hephaestus",
@@ -65,6 +136,35 @@ app.add_middleware(
 )
 
 _analyzer = Analyzer()
+
+
+@app.middleware("http")
+async def telemetry_http_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    start = time.perf_counter()
+    command = f"{request.method} {request.url.path}"
+    _emit_telemetry(f"HTTP {command} [start]", command=command, stream="stdin")
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        _emit_telemetry(
+            f"HTTP {command} [error] {exc} ({elapsed_ms:.1f} ms)",
+            command=command,
+            stream="stderr",
+            level="error",
+        )
+        raise
+
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    _emit_telemetry(
+        f"HTTP {command} -> {response.status_code} ({elapsed_ms:.1f} ms)",
+        command=command,
+        stream="stdout",
+    )
+    return response
 
 
 @app.get("/sandbox/health", response_model=HealthResponse)
@@ -140,12 +240,22 @@ def find_similar(job_id: str) -> list[SimilarJob]:
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     """Stream PantheonEvents to connected dashboard clients."""
-    await bus.subscribe(websocket)
+    _emit_telemetry("WS /ws client connected", command="ws subscribe /ws")
+    try:
+        await bus.subscribe(websocket)
+    finally:
+        _emit_telemetry("WS /ws client disconnected", command="ws subscribe /ws")
 
 
 @app.post("/events", status_code=204)
 async def receive_event(event: PantheonEvent) -> None:
     """Accept an event from any agent and broadcast it to all /ws subscribers."""
+    if event.type != EventType.TELEMETRY:
+        _emit_telemetry(
+            f"EVENT {event.type.value} agent={event.agent.value if event.agent else 'unknown'} tool={event.tool or '-'}",
+            command="POST /events",
+            stream="stdout",
+        )
     bus.publish(event)
 
 

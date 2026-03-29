@@ -6,7 +6,7 @@ interface AgentGraphProps {
   store: EventStore;
 }
 
-const AGENT_NAMES = ['zeus', 'athena', 'hades', 'apollo', 'ares'] as const;
+const AGENT_NAMES = ['zeus', 'athena', 'hades', 'apollo', 'ares', 'hermes', 'artemis', 'hephaestus', 'muse'] as const;
 
 export default function AgentGraph({ store }: AgentGraphProps) {
   const agents = store.getAgents();
@@ -18,6 +18,10 @@ export default function AgentGraph({ store }: AgentGraphProps) {
     hades: { bg: '#F87171', border: '#DC2626', text: '#7F1D1D' },
     apollo: { bg: '#FB923C', border: '#F97316', text: '#7C2D12' },
     ares: { bg: '#A78BFA', border: '#8B5CF6', text: '#3F0F5C' },
+    hermes: { bg: '#06B6D4', border: '#0891B2', text: '#083344' },
+    artemis: { bg: '#10B981', border: '#059669', text: '#064E3B' },
+    hephaestus: { bg: '#6366F1', border: '#4F46E5', text: '#1E1B4B' },
+    muse: { bg: '#EC4899', border: '#DB2777', text: '#500724' },
   };
 
   const getStateIndicator = (state: string) => {
@@ -38,7 +42,7 @@ export default function AgentGraph({ store }: AgentGraphProps) {
       <h3 className="text-lg font-bold mb-6 text-white">Agent Pipeline</h3>
 
       {/* SVG Graph */}
-      <svg viewBox="0 0 300 600" className="w-full mb-4">
+      <svg viewBox="0 0 300 1050" className="w-full mb-4">
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
             <polygon points="0 0, 10 3, 0 6" fill="#4B5563" />
@@ -50,6 +54,10 @@ export default function AgentGraph({ store }: AgentGraphProps) {
         <line x1="150" y1="180" x2="150" y2="240" stroke="#4B5563" strokeWidth="2" markerEnd="url(#arrowhead)" />
         <line x1="150" y1="300" x2="150" y2="360" stroke="#4B5563" strokeWidth="2" markerEnd="url(#arrowhead)" />
         <line x1="150" y1="420" x2="150" y2="480" stroke="#4B5563" strokeWidth="2" markerEnd="url(#arrowhead)" />
+        <line x1="150" y1="540" x2="150" y2="600" stroke="#4B5563" strokeWidth="2" markerEnd="url(#arrowhead)" />
+        <line x1="150" y1="660" x2="150" y2="720" stroke="#4B5563" strokeWidth="2" markerEnd="url(#arrowhead)" />
+        <line x1="150" y1="780" x2="150" y2="840" stroke="#4B5563" strokeWidth="2" markerEnd="url(#arrowhead)" />
+        <line x1="150" y1="900" x2="150" y2="960" stroke="#4B5563" strokeWidth="2" markerEnd="url(#arrowhead)" />
 
         {/* Agent nodes */}
         {[
@@ -58,6 +66,10 @@ export default function AgentGraph({ store }: AgentGraphProps) {
           { name: 'hades', y: 270, role: '💀 Analysis' },
           { name: 'apollo', y: 390, role: '☀️ Enrichment' },
           { name: 'ares', y: 510, role: '⚔️ Response' },
+          { name: 'hermes', y: 630, role: '📞 Gateway' },
+          { name: 'artemis', y: 750, role: '👁️ Sentinel' },
+          { name: 'hephaestus', y: 870, role: '⚒️ Sandbox' },
+          { name: 'muse', y: 990, role: '🎤 Voice' },
         ].map((agent) => {
           const color = agentColors[agent.name as keyof typeof agentColors];
           const status = agentMap[agent.name as keyof typeof agentMap];

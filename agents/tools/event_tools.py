@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 import httpx
 
@@ -25,7 +26,7 @@ async def emit_event(
     agent: str | None = None,
     tool: str | None = None,
     job_id: str | None = None,
-    payload: str | None = None,  # accepted but unused — keeps call sites stable
+    payload: dict[str, Any] | None = None,
 ) -> None:
     """Fire-and-forget: emit a PantheonEvent to the Hephaestus EventBus."""
     event = PantheonEvent(
@@ -33,7 +34,7 @@ async def emit_event(
         agent=AgentName(agent.lower()) if agent else None,
         tool=tool,
         job_id=job_id,
-        payload={},
+        payload=payload or {},
     )
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:

@@ -19,7 +19,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, ScanLine, FlaskConical, Globe, ShieldAlert, Radio, Eye, Wrench, type LucideIcon } from 'lucide-react';
+import { Zap, ScanLine, FlaskConical, Globe, ShieldAlert, Radio, Eye, Wrench, Mic, type LucideIcon } from 'lucide-react';
 import { AgentName, EventStore, AgentStatus } from '@/lib/event-store';
 
 // ─── Constants & Registry ───────────────────────────────────────────────────
@@ -33,9 +33,10 @@ const AGENT_META: Record<AgentName, { icon: LucideIcon; color: string; label: st
   hermes:     { icon: Radio,        color: '#34D399', label: 'Hermes'     },
   artemis:    { icon: Eye,          color: '#F472B6', label: 'Artemis'    },
   hephaestus: { icon: Wrench,       color: '#94A3B8', label: 'Hephaestus' },
+  muse:       { icon: Mic,          color: '#D946EF', label: 'Muse'       },
 };
 
-const AGENT_ORDER: AgentName[] = ['athena', 'hades', 'apollo', 'ares', 'hermes', 'artemis', 'hephaestus'];
+const AGENT_ORDER: AgentName[] = ['athena', 'hades', 'apollo', 'ares', 'hermes', 'artemis', 'hephaestus', 'muse'];
 const HANDLE_POSITIONS = {
   top: Position.Top,
   right: Position.Right,
@@ -76,7 +77,7 @@ function getHandleId(source: AgentName, target: AgentName): HandleId {
 // ─── Custom Components ──────────────────────────────────────────────────────
 
 const GodNode = ({ data }: NodeProps<Node<GodNodeData, 'god'>>) => {
-  const meta = AGENT_META[data.name as AgentName];
+  const meta = AGENT_META[data.name as AgentName] || { icon: Eye, color: '#A1A1AA', label: (data.name || 'Unknown').toUpperCase() };
   const isZeus    = data.name === 'zeus';
   const isActive  = data.state === 'active';
   const isComplete = data.state === 'complete';

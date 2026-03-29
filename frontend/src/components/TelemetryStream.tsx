@@ -10,7 +10,9 @@ export default function TelemetryStream({ store }: { store: EventStore }) {
 
   useEffect(() => {
     const updateTelemetry = () => {
-      setTelemetry(store.getTelemetry());
+      const newTelemetry = store.getTelemetry();
+      console.log("[TelemetryStream] Updating telemetry array, size:", newTelemetry.length);
+      setTelemetry(newTelemetry);
     };
 
     updateTelemetry();

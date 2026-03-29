@@ -227,6 +227,7 @@ function AgentCard({ agent }: AgentCardProps) {
     hermes: { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/30' },
     artemis: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
     hephaestus: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/30' },
+    muse: { bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/30' },
   };
 
   const colors = agentColors[agent.name] || agentColors.zeus;

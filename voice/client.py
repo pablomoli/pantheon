@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import os
-from typing import Final
+from typing import Final, Any
 
 import httpx
 from google import genai
 from google.genai import types
 
 from agents.model_config import get_next_gemini_api_key
+from agents.tools.event_tools import emit_event
+from sandbox.models import AgentName, EventType
 from voice.exceptions import SpeechError, TranscriptionError
 from voice.personas import ZEUS_VOICE_ID
 from agents.model_config import MUSE_STT_MODEL
@@ -36,11 +38,33 @@ async def transcribe(audio_bytes: bytes, mime_type: str = "audio/ogg") -> str:
     if not audio_bytes:
         raise TranscriptionError("Empty audio payload")
 
+    # Muse starts transcription
+    await emit_event(
+        EventType.TOOL_CALLED,
+        agent=AgentName.MUSE,
+        tool="transcribe",
+        payload={"mime_type": mime_type, "size_bytes": len(audio_bytes)},
+    )
+
     try:
-        return await _transcribe_elevenlabs(audio_bytes, mime_type)
+        response_text = await _transcribe_elevenlabs(audio_bytes, mime_type)
+        await emit_event(
+            EventType.TOOL_RESULT,
+            agent=AgentName.MUSE,
+            tool="transcribe",
+            payload={"text_preview": response_text[:50], "chars": len(response_text)},
+        )
+        return response_text
     except Exception as exc:
         try:
-            return await _transcribe_gemini(audio_bytes, mime_type)
+            response_text = await _transcribe_gemini(audio_bytes, mime_type)
+            await emit_event(
+                EventType.TOOL_RESULT,
+                agent=AgentName.MUSE,
+                tool="transcribe",
+                payload={"text_preview": response_text[:50], "chars": len(response_text), "method": "gemini_fallback"},
+            )
+            return response_text
         except Exception as gemini_exc:  # pragma: no cover
             message = (
                 "Transcription failed with ElevenLabs and Gemini: "
@@ -70,17 +94,33 @@ async def speak(text: str, voice_id: str | None = None) -> bytes:
         "model_id": _TTS_MODEL,
     }
 
+    # Muse starts TTS
+    await emit_event(
+        EventType.TOOL_CALLED,
+        agent=AgentName.MUSE,
+        tool="speak",
+        payload={"text_preview": text[:50], "chars": len(text), "voice_id": resolved_voice_id},
+    )
+
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         response = await client.post(url, headers=headers, params=params, json=payload)
         try:
             response.raise_for_status()
+            audio_content = response.content
+            await emit_event(
+                EventType.TOOL_RESULT,
+                agent=AgentName.MUSE,
+                tool="speak",
+                payload={"audio_size_bytes": len(audio_content)},
+            )
+            return audio_content
         except httpx.HTTPStatusError as exc:  # pragma: no cover
+            await emit_event(
+                EventType.ERROR,
+                agent=AgentName.MUSE,
+                payload={"error": f"ElevenLabs TTS failed: {exc}"},
+            )
             raise SpeechError(f"ElevenLabs TTS failed: {exc}") from exc
-
-    if not response.content:
-        raise SpeechError("ElevenLabs TTS returned empty audio")
-
-    return response.content
 
 
 async def _transcribe_elevenlabs(audio_bytes: bytes, mime_type: str) -> str:

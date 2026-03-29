@@ -18,7 +18,7 @@ export type EventType =
   | "AGENT_COMMAND"
   | "ERROR";
 
-export type AgentName = "zeus" | "athena" | "hades" | "apollo" | "ares" | "hermes" | "artemis" | "hephaestus";
+export type AgentName = "zeus" | "athena" | "hades" | "apollo" | "ares" | "hermes" | "artemis" | "hephaestus" | "muse";
 
 export interface PantheonEvent {
   id: string;
@@ -83,6 +83,14 @@ export interface JobState {
   current_agent?: AgentName;
 }
 
+export interface TelemetryEntry {
+  timestamp: string;
+  agent: string;
+  command?: string;
+  output: string;
+  stream: "stdin" | "stdout" | "stderr";
+}
+
 export class EventStore {
   private agents: Map<AgentName, AgentStatus> = new Map();
   private events: PantheonEvent[] = [];
@@ -90,7 +98,7 @@ export class EventStore {
   private iocs: Map<string, IOCEntry> = new Map();
   private processes: Map<string, ProcessNode> = new Map();
   private currentJob: JobState | null = null;
-  private telemetry: any[] = [];
+  private telemetry: TelemetryEntry[] = [];
   private handoffs: any[] = [];
   private subscribers: Set<() => void> = new Set();
 
@@ -99,7 +107,7 @@ export class EventStore {
   }
 
   private initializeAgents() {
-    const agents: AgentName[] = ["zeus", "athena", "hades", "apollo", "ares", "hermes", "artemis", "hephaestus"];
+    const agents: AgentName[] = ["zeus", "athena", "hades", "apollo", "ares", "hermes", "artemis", "hephaestus", "muse"];
     agents.forEach((name) => {
       this.agents.set(name, {
         name,
@@ -109,90 +117,90 @@ export class EventStore {
     });
   }
 
-  addEvent(event: PantheonEvent) {
-    const eventWithTime = {
+  addEvent(event: any) {
+    // Normalize event from backend (handles 'ts' -> 'timestamp' and casing)
+    const normalizedEvent: PantheonEvent = {
       ...event,
-      timestamp: event.timestamp || new Date().toISOString(),
+      id: event.id || Math.random().toString(36).substring(7),
+      type: (event.type || "TELEMETRY").toUpperCase() as EventType,
+      timestamp: event.timestamp || event.ts || new Date().toISOString(),
+      agent: event.agent?.toLowerCase() as AgentName,
     };
-    this.events.push(eventWithTime);
+
+    this.events.push(normalizedEvent);
 
     // Update agent status
-    if (event.agent) {
-      const agent = this.agents.get(event.agent)!;
+    if (normalizedEvent.agent) {
+      let agent = this.agents.get(normalizedEvent.agent);
+      if (!agent) {
+        agent = { name: normalizedEvent.agent, state: "idle", event_count: 0 };
+        this.agents.set(normalizedEvent.agent, agent);
+      }
       agent.event_count++;
-      agent.last_event_time = eventWithTime.timestamp;
+      agent.last_event_time = normalizedEvent.timestamp;
 
-      if (event.type === "AGENT_ACTIVATED") {
+      if (normalizedEvent.type === "AGENT_ACTIVATED") {
         agent.state = "active";
-        agent.current_task = event.payload.step as string;
-      } else if (event.type === "AGENT_COMPLETED") {
+        agent.current_task = normalizedEvent.payload.step as string;
+      } else if (normalizedEvent.type === "AGENT_COMPLETED") {
         agent.state = "complete";
-      } else if (event.type === "ERROR") {
+      } else if (normalizedEvent.type === "ERROR") {
         agent.state = "error";
       }
     }
 
     // Handle stage discovery
-    if (event.type === "STAGE_UNLOCKED") {
-      const stage_id = event.payload.stage_id as string;
+    if (normalizedEvent.type === "STAGE_UNLOCKED") {
+      const stage_id = normalizedEvent.payload.stage_id as string;
       this.stages.set(stage_id, {
         stage_id,
-        label: event.payload.label as string,
-        description: event.payload.description as string,
-        icon: event.payload.icon as string,
-        discovered_at: eventWithTime.timestamp,
+        label: normalizedEvent.payload.label as string,
+        description: normalizedEvent.payload.description as string,
+        icon: normalizedEvent.payload.icon as string,
+        discovered_at: normalizedEvent.timestamp,
       });
     }
 
     // Handle IOC discovery
-    if (event.type === "IOC_DISCOVERED") {
-      const ioc_value = event.payload.value as string;
+    if (normalizedEvent.type === "IOC_DISCOVERED") {
+      const ioc_value = normalizedEvent.payload.value as string;
       this.iocs.set(ioc_value, {
-        type: event.payload.ioc_type as IOCEntry["type"],
+        type: normalizedEvent.payload.ioc_type as IOCEntry["type"],
         value: ioc_value,
-        severity: event.payload.severity as IOCEntry["severity"],
-        source: event.agent || "unknown",
-        discovered_at: eventWithTime.timestamp,
-        context: event.payload.context as string,
+        severity: normalizedEvent.payload.severity as IOCEntry["severity"],
+        source: normalizedEvent.agent || "unknown",
+        discovered_at: normalizedEvent.timestamp,
+        context: normalizedEvent.payload.context as string,
       });
     }
 
     // Handle process events
-    if (event.type === "PROCESS_EVENT") {
-      const process_id = event.payload.id as string;
+    if (normalizedEvent.type === "PROCESS_EVENT") {
+      const process_id = normalizedEvent.payload.id as string;
       this.processes.set(process_id, {
         id: process_id,
-        name: event.payload.name as string,
-        parent_id: event.payload.parent_id as string,
-        event_type: event.payload.event_type as ProcessNode["event_type"],
-        details: event.payload.details as Record<string, unknown>,
+        name: normalizedEvent.payload.name as string,
+        parent_id: normalizedEvent.payload.parent_id as string,
+        event_type: normalizedEvent.payload.event_type as ProcessNode["event_type"],
+        details: normalizedEvent.payload.details as Record<string, unknown>,
       });
     }
 
-    // Handle telemetry
-    if (event.type === "TELEMETRY") {
-      this.telemetry.push({
-        timestamp: eventWithTime.timestamp,
-        agent: event.agent || "system",
-        command: event.payload.command as string,
-        output: event.payload.output as string,
-        stream: event.payload.stream as "stdin" | "stdout" | "stderr",
-      });
-      if (this.telemetry.length > 200) this.telemetry.shift();
-    }
+    // Terminal stream mirrors all events, with richer payloads for TELEMETRY.
+    this.appendTelemetry(normalizedEvent);
 
     // Handle thoughts
-    if (event.type === "THOUGHT") {
-      const agentObj = this.agents.get(event.agent!);
-      if (agentObj) agentObj.last_thought = event.payload.thought as string;
+    if (normalizedEvent.type === "THOUGHT") {
+      const agentObj = this.agents.get(normalizedEvent.agent!);
+      if (agentObj) agentObj.last_thought = normalizedEvent.payload.thought as string;
     }
 
     // Handle handoffs for the graph
-    if (event.type === "HANDOFF") {
+    if (normalizedEvent.type === "HANDOFF") {
       this.handoffs.push({
-        from: event.payload.from as AgentName,
-        to: event.payload.to as AgentName,
-        timestamp: eventWithTime.timestamp,
+        from: normalizedEvent.payload.from as AgentName,
+        to: normalizedEvent.payload.to as AgentName,
+        timestamp: normalizedEvent.timestamp,
       });
       if (this.handoffs.length > 50) this.handoffs.shift();
     }
@@ -272,11 +280,11 @@ export class EventStore {
   }
 
   getTelemetry() {
-    return this.telemetry;
+    return [...this.telemetry];
   }
 
   getHandoffs() {
-    return this.handoffs;
+    return [...this.handoffs];
   }
 
   subscribe(callback: () => void): () => void {
@@ -297,6 +305,79 @@ export class EventStore {
     this.currentJob = null;
     this.initializeAgents();
     this.notify();
+  }
+
+  private appendTelemetry(event: PantheonEvent) {
+    const payload = event.payload || {};
+
+    if (event.type === "TELEMETRY") {
+      const message = (payload.output as string) || (payload.message as string) || "";
+      const stream = payload.stream as "stdin" | "stdout" | "stderr" | undefined;
+      this.pushTelemetry({
+        timestamp: event.timestamp,
+        agent: event.agent || "system",
+        command: payload.command as string | undefined,
+        output: message,
+        stream: stream || ((payload.level as string) === "error" ? "stderr" : "stdout"),
+      });
+      return;
+    }
+
+    const summary = this.describeEvent(event);
+    this.pushTelemetry({
+      timestamp: event.timestamp,
+      agent: event.agent || "system",
+      command: summary.command,
+      output: summary.output,
+      stream: summary.stream,
+    });
+  }
+
+  private describeEvent(event: PantheonEvent): {
+    command?: string;
+    output: string;
+    stream: "stdin" | "stdout" | "stderr";
+  } {
+    const payloadText = Object.keys(event.payload || {}).length
+      ? JSON.stringify(event.payload)
+      : "";
+
+    switch (event.type) {
+      case "TOOL_CALLED":
+        return {
+          command: `tool:${event.tool || "unknown"}`,
+          output: payloadText || `${event.agent || "system"} called ${event.tool || "tool"}`,
+          stream: "stdin",
+        };
+      case "TOOL_RESULT":
+        return {
+          command: `result:${event.tool || "unknown"}`,
+          output: payloadText || `${event.agent || "system"} completed ${event.tool || "tool"}`,
+          stream: "stdout",
+        };
+      case "ERROR":
+        return {
+          command: `${event.agent || "system"}:error`,
+          output: payloadText || "error event received",
+          stream: "stderr",
+        };
+      default:
+        return {
+          command: `${event.agent || "system"}:${event.type.toLowerCase()}`,
+          output: payloadText || event.type,
+          stream: "stdout",
+        };
+    }
+  }
+
+  private pushTelemetry(entry: TelemetryEntry) {
+    if (this.telemetry.length === 0 || this.telemetry.length % 10 === 0) {
+      console.log(`[EventStore] Pushed telemetry entry (total: ${this.telemetry.length + 1}). Sample:`, entry);
+    }
+    this.telemetry.push(entry);
+    if (this.telemetry.length > 500) {
+      this.telemetry.shift();
+    }
   }
 }
 
