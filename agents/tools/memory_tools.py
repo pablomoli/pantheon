@@ -17,6 +17,9 @@ import httpx
 from google import genai
 from google.genai import types as genai_types
 
+from agents.tools.event_tools import emit_event
+from sandbox.models import AgentName, EventType
+
 _SANDBOX_URL: str = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
 _MODEL: str = "gemini-2.5-flash"
 
@@ -68,6 +71,13 @@ async def store_agent_output(
     Returns:
         Dict with ``run_number`` (int) and ``total_runs`` (int).
     """
+    await emit_event(
+        EventType.TOOL_CALLED,
+        agent=AgentName.ARES,
+        tool="store_agent_output",
+        job_id=job_id,
+        payload={"agent_name": agent_name, "temperature": temperature},
+    )
     payload = {
         "job_id": job_id,
         "agent_name": agent_name,
@@ -77,7 +87,15 @@ async def store_agent_output(
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(f"{_SANDBOX_URL}/sandbox/memory", json=payload)
         resp.raise_for_status()
-    return resp.json()  # type: ignore[no-any-return]  # httpx returns Any
+    result: dict[str, int] = resp.json()
+    await emit_event(
+        EventType.TOOL_RESULT,
+        agent=AgentName.ARES,
+        tool="store_agent_output",
+        job_id=job_id,
+        payload=result,
+    )
+    return result
 
 
 async def load_prior_runs(
@@ -97,10 +115,25 @@ async def load_prior_runs(
         ``run_number``, ``temperature``, ``output``, ``created_at``.
         Ordered oldest-first (run_number ascending).
     """
+    await emit_event(
+        EventType.TOOL_CALLED,
+        agent=AgentName.APOLLO,
+        tool="load_prior_runs",
+        job_id=job_id,
+        payload={"agent_name": agent_name},
+    )
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.get(f"{_SANDBOX_URL}/sandbox/memory/{job_id}/{agent_name}")
         resp.raise_for_status()
-    return resp.json()  # type: ignore[no-any-return]
+    result: list[dict[str, Any]] = resp.json()
+    await emit_event(
+        EventType.TOOL_RESULT,
+        agent=AgentName.APOLLO,
+        tool="load_prior_runs",
+        job_id=job_id,
+        payload={"run_count": len(result)},
+    )
+    return result
 
 
 async def synthesize_prior_runs(
@@ -123,9 +156,24 @@ async def synthesize_prior_runs(
         Synthesized markdown output combining the best of all prior runs,
         or a short message if synthesis is not yet possible.
     """
+    await emit_event(
+        EventType.TOOL_CALLED,
+        agent=AgentName.APOLLO,
+        tool="synthesize_prior_runs",
+        job_id=job_id,
+        payload={"agent_name": agent_name},
+    )
     runs = await load_prior_runs(job_id, agent_name)
     if len(runs) < 2:
-        return "(not enough runs to synthesize — need at least 2)"
+        synthesis = "(not enough runs to synthesize — need at least 2)"
+        await emit_event(
+            EventType.TOOL_RESULT,
+            agent=AgentName.APOLLO,
+            tool="synthesize_prior_runs",
+            job_id=job_id,
+            payload={"synthesis_length": len(synthesis)},
+        )
+        return synthesis
 
     runs_block_parts: list[str] = []
     for entry in runs:
@@ -155,6 +203,13 @@ async def synthesize_prior_runs(
 
     # Store the synthesis as the next run so it builds on itself over time
     await store_agent_output(job_id, agent_name, synthesis, temperature=0.0)
+    await emit_event(
+        EventType.TOOL_RESULT,
+        agent=AgentName.APOLLO,
+        tool="synthesize_prior_runs",
+        job_id=job_id,
+        payload={"synthesis_length": len(synthesis)},
+    )
     return synthesis
 
 
@@ -175,10 +230,25 @@ async def find_similar_jobs(
         ``similarity`` (0.0-1.0), and ``shared_behaviors`` (list of strings).
         Sorted by similarity descending.
     """
+    await emit_event(
+        EventType.TOOL_CALLED,
+        agent=AgentName.HADES,
+        tool="find_similar_jobs",
+        job_id=job_id,
+        payload={"job_id": job_id},
+    )
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.get(f"{_SANDBOX_URL}/sandbox/similar/{job_id}")
         resp.raise_for_status()
-    return resp.json()  # type: ignore[no-any-return]
+    result: list[dict[str, Any]] = resp.json()
+    await emit_event(
+        EventType.TOOL_RESULT,
+        agent=AgentName.HADES,
+        tool="find_similar_jobs",
+        job_id=job_id,
+        payload={"match_count": len(result)},
+    )
+    return result
 
 
 async def store_behavioral_fingerprint(
@@ -198,7 +268,22 @@ async def store_behavioral_fingerprint(
     Returns:
         Dict with ``status`` ("ok") and ``job_id``.
     """
+    await emit_event(
+        EventType.TOOL_CALLED,
+        agent=AgentName.HADES,
+        tool="store_behavioral_fingerprint",
+        job_id=job_id,
+        payload={"job_id": job_id},
+    )
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(f"{_SANDBOX_URL}/sandbox/fingerprint/{job_id}")
         resp.raise_for_status()
-    return resp.json()  # type: ignore[no-any-return]
+    result: dict[str, str] = resp.json()
+    await emit_event(
+        EventType.TOOL_RESULT,
+        agent=AgentName.HADES,
+        tool="store_behavioral_fingerprint",
+        job_id=job_id,
+        payload=result,
+    )
+    return result

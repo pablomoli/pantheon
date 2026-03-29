@@ -13,6 +13,9 @@ from typing import Any
 from google import genai
 from google.genai import types as genai_types
 
+from agents.tools.event_tools import emit_event
+from sandbox.models import AgentName, EventType
+
 _MODEL: str = "gemini-2.5-flash"
 
 
@@ -36,6 +39,12 @@ async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
     Returns:
         Plain-text threat intelligence enrichment from Gemini (markdown).
     """
+    await emit_event(
+        EventType.TOOL_CALLED,
+        agent=AgentName.APOLLO,
+        tool="enrich_iocs_with_threat_intel",
+        payload={"ioc_count": ioc_report_json.count('"')},
+    )
     client = _gemini_client()
     prompt = (
         "You are a threat intelligence analyst. Below is a set of indicators of "
@@ -55,7 +64,14 @@ async def enrich_iocs_with_threat_intel(ioc_report_json: str) -> str:
             max_output_tokens=2048,
         ),
     )
-    return response.text or "(no enrichment generated)"
+    result = response.text or "(no enrichment generated)"
+    await emit_event(
+        EventType.TOOL_RESULT,
+        agent=AgentName.APOLLO,
+        tool="enrich_iocs_with_threat_intel",
+        payload={"enrichment_length": len(result)},
+    )
+    return result
 
 
 def format_threat_report(report: dict[str, Any]) -> str:  # Any: nested ThreatReport data

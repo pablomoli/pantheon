@@ -26,10 +26,12 @@ async def test_store_agent_output_posts_correct_payload() -> None:
     with patch("agents.tools.memory_tools.httpx.AsyncClient", return_value=mock_client):
         result = await store_agent_output("job1", "ares", "my plan", 0.3)
 
-    mock_client.post.assert_called_once()
-    call_kwargs = mock_client.post.call_args
-    assert "/sandbox/memory" in call_kwargs[0][0]
-    payload = call_kwargs[1]["json"]
+    # post is called three times: TOOL_CALLED event, sandbox memory, TOOL_RESULT event
+    assert mock_client.post.call_count == 3
+    memory_call = next(
+        c for c in mock_client.post.call_args_list if "/sandbox/memory" in c[0][0]
+    )
+    payload = memory_call[1]["json"]
     assert payload["job_id"] == "job1"
     assert payload["agent_name"] == "ares"
     assert payload["output"] == "my plan"
@@ -172,7 +174,10 @@ async def test_store_behavioral_fingerprint_posts_to_endpoint() -> None:
     with patch("agents.tools.memory_tools.httpx.AsyncClient", return_value=mock_client):
         result = await store_behavioral_fingerprint("job1")
 
-    mock_client.post.assert_called_once()
-    url = mock_client.post.call_args[0][0]
-    assert "/sandbox/fingerprint/job1" in url
+    # post is called three times: TOOL_CALLED event, sandbox fingerprint, TOOL_RESULT event
+    assert mock_client.post.call_count == 3
+    fingerprint_call = next(
+        c for c in mock_client.post.call_args_list if "/sandbox/fingerprint/job1" in c[0][0]
+    )
+    assert "/sandbox/fingerprint/job1" in fingerprint_call[0][0]
     assert result["status"] == "ok"
