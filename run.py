@@ -1,4 +1,9 @@
-"""Pantheon entry point — starts Hermes (Telegram bot + webapp) concurrently.
+"""Pantheon entry point — starts all services concurrently.
+
+Services:
+    - Hermes Telegram bot (polling mode)
+    - Voice call Mini App (FastAPI on WEBAPP_PORT)
+    - Hephaestus sandbox API (FastAPI on port 9000)
 
 Usage:
     uv run python run.py
@@ -9,12 +14,42 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sys
 
 from dotenv import load_dotenv
 
 
+def _check_env() -> None:
+    """Warn about missing environment variables (non-fatal)."""
+    required = ["TELEGRAM_BOT_TOKEN", "ELEVENLABS_API_KEY"]
+    missing = [k for k in required if not os.getenv(k)]
+    if missing:
+        print(f"Warning: missing environment variables: {', '.join(missing)}")
+        print("Copy .env.example to .env and fill in values.")
+
+
+async def _run_bot() -> None:
+    """Start the Telegram bot in polling mode."""
+    from gateway.bot import build_app
+
+    tg_app = build_app()
+    logging.getLogger(__name__).info("Hermes is online — polling for updates…")
+
+    await tg_app.initialize()
+    await tg_app.start()
+    await tg_app.updater.start_polling(drop_pending_updates=True)  # type: ignore[union-attr]
+
+    try:
+        while True:
+            await asyncio.sleep(3600)
+    finally:
+        await tg_app.updater.stop()  # type: ignore[union-attr]
+        await tg_app.stop()
+        await tg_app.shutdown()
+
+
 async def _run_webapp() -> None:
-    """Start the FastAPI webapp for the voice-call Mini App."""
+    """Start the voice-call Mini App FastAPI server."""
     import uvicorn
 
     from gateway.webapp import app
@@ -25,48 +60,47 @@ async def _run_webapp() -> None:
     await server.serve()
 
 
-async def _run_bot() -> None:
-    """Start the Telegram bot in polling mode."""
-    from gateway.bot import build_app
+async def _run_sandbox() -> None:
+    """Start the Hephaestus sandbox API server."""
+    import uvicorn
 
-    tg_app = build_app()
-    logging.getLogger(__name__).info("Hermes is online — polling for updates…")
+    from sandbox.main import app
 
-    # python-telegram-bot's run_polling() is blocking — use the async API.
-    await tg_app.initialize()
-    await tg_app.start()
-    await tg_app.updater.start_polling(drop_pending_updates=True)  # type: ignore[union-attr]
-
-    # Keep running until cancelled.
-    try:
-        while True:
-            await asyncio.sleep(3600)
-    finally:
-        await tg_app.updater.stop()  # type: ignore[union-attr]
-        await tg_app.stop()
-        await tg_app.shutdown()
+    config = uvicorn.Config(app, host="0.0.0.0", port=9000, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
 
 
 async def _main() -> None:
-    """Run the Telegram bot and the webapp concurrently."""
+    """Run all available services concurrently."""
     logger = logging.getLogger(__name__)
+    tasks: list[asyncio.Task[None]] = []
 
-    tasks: list[asyncio.Task[None]] = [asyncio.create_task(_run_bot())]
+    # Always start the Telegram bot.
+    tasks.append(asyncio.create_task(_run_bot()))
 
+    # Voice call Mini App (requires WEBAPP_BASE_URL).
     if os.getenv("WEBAPP_BASE_URL"):
         tasks.append(asyncio.create_task(_run_webapp()))
-        logger.info(
-            "WebApp server starting on port %s",
-            os.getenv("WEBAPP_PORT", "8443"),
-        )
+        logger.info("WebApp starting on port %s", os.getenv("WEBAPP_PORT", "8443"))
     else:
         logger.info("WEBAPP_BASE_URL not set — voice call Mini App disabled")
+
+    # Sandbox API (requires sandbox.main to exist).
+    try:
+        from sandbox.main import app as _  # noqa: F401
+
+        tasks.append(asyncio.create_task(_run_sandbox()))
+        logger.info("Hephaestus sandbox API starting on port 9000")
+    except ImportError:
+        logger.info("sandbox.main not available — sandbox API disabled")
 
     await asyncio.gather(*tasks)
 
 
 def main() -> None:
     load_dotenv()
+    _check_env()
 
     logging.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO"),

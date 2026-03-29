@@ -1,13 +1,11 @@
-"""Voice persona configuration."""
-
 from __future__ import annotations
 
 import os
 
-# Default voice — deep, authoritative. Override via ELEVENLABS_VOICE_ID env var.
-_DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"
+# Default is a public demo voice; override via ELEVENLABS_VOICE_ID in .env.
+ZEUS_VOICE_ID: str = os.getenv("ELEVENLABS_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb")
 
 
 def get_voice_id() -> str:
     """Return the current voice ID, checking env each time for hot-reload."""
-    return os.getenv("ELEVENLABS_VOICE_ID") or _DEFAULT_VOICE_ID
+    return os.getenv("ELEVENLABS_VOICE_ID") or "JBFqnCBsd6RMkjVDRZzb"

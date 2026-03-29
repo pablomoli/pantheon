@@ -52,6 +52,23 @@ MalwareChallenge.zip
 analysis_results/
 sandbox_outputs/
 
+# SQLite job store (runtime artifact — created on first run by Hephaestus)
+pantheon.db
+pantheon.db-wal
+pantheon.db-shm
+
 # Logs
 *.log
 logs/
+
+.claude/*
+!.claude/settings.json
+# Ignore all CLAUDE.md files in subdirectories
+**/CLAUDE.md
+# Allow ONLY the one in the root directory
+!/CLAUDE.md
+
+# Node / Next.js frontend
+node_modules/
+frontend/.next/
+frontend/out/
