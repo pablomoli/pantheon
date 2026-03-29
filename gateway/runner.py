@@ -86,6 +86,15 @@ def _get_runner() -> Runner:
 
 async def _run_via_adk(user_id: str, text: str) -> str:
     """Send through the ADK Runner (Zeus -> Athena -> Hades -> ...)."""
+    from agents.tools.event_tools import emit_event
+    from sandbox.models import AgentName, EventType
+
+    # Emit Zeus activation so the dashboard shows the orchestrator lighting up.
+    await emit_event(
+        EventType.AGENT_ACTIVATED.value,
+        agent=AgentName.ZEUS.value,
+    )
+
     session = await create_or_get_session(user_id)
     runner = _get_runner()
 
@@ -109,7 +118,15 @@ async def _run_via_adk(user_id: str, text: str) -> str:
         logger.warning("Zeus returned an empty response for user %s", user_id)
         return ""
 
-    return "".join(response_parts)
+    result = "".join(response_parts)
+
+    # Emit Zeus completion so the dashboard marks the orchestrator as done.
+    await emit_event(
+        EventType.AGENT_COMPLETED.value,
+        agent=AgentName.ZEUS.value,
+    )
+
+    return result
 
 
 async def _run_via_elevenlabs(text: str) -> str:
@@ -128,36 +145,29 @@ async def get_agent_response(user_id: str, text: str, *, force_adk: bool = False
     """Send *text* to the best available agent and return the full reply.
 
     Priority:
-    1. ElevenLabs Conversational AI agent (if ELEVENLABS_AGENT_ID is set)
-    2. ADK pipeline via Zeus (real or stub)
+    1. ADK pipeline via Zeus (real or stub) — always preferred so the full
+       multi-agent swarm runs and dashboard events are emitted.
+    2. ElevenLabs Conversational AI agent — fallback only if ADK fails.
 
-    If the primary fails, falls back to the other. The user always gets
-    a response.
+    The user always gets a response.
     """
-    if force_adk or _looks_like_pantheon_activation(text):
-        try:
-            response = await _run_via_adk(user_id, text)
-            if response:
-                return response
-        except Exception:
-            logger.exception("Forced ADK route failed for user %s", user_id)
+    # --- Always try ADK pipeline first (Zeus → Athena → Hades → ...) ---
+    try:
+        response = await _run_via_adk(user_id, text)
+        if response:
+            return response
+        logger.warning("ADK pipeline returned empty for user %s", user_id)
+    except Exception:
+        logger.exception("ADK pipeline failed for user %s", user_id)
 
-    # --- Try ElevenLabs agent first (intelligent responses) ---
+    # --- Fall back to ElevenLabs agent ---
     if _has_elevenlabs_agent():
         try:
             response = await _run_via_elevenlabs(text)
             if response:
                 return response
-            logger.warning("ElevenLabs agent returned empty — falling back to ADK")
+            logger.warning("ElevenLabs agent returned empty")
         except Exception:
-            logger.exception("ElevenLabs agent failed — falling back to ADK")
-
-    # --- Fall back to ADK pipeline ---
-    try:
-        response = await _run_via_adk(user_id, text)
-        if response:
-            return response
-    except Exception:
-        logger.exception("ADK pipeline failed for user %s", user_id)
+            logger.exception("ElevenLabs agent fallback also failed for user %s", user_id)
 
     return "I couldn't generate a response. Please try again or send /reset."

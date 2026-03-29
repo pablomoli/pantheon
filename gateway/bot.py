@@ -135,6 +135,14 @@ async def _send_with_typing(
                 payload=f"telegram_prompt:{prompt[:120]}",
             )
         )
+        # Emit handoff from Hermes → Zeus so the dashboard shows the transfer.
+        asyncio.create_task(
+            emit_event(
+                EventType.HANDOFF.value,
+                agent=AgentName.HERMES.value,
+                payload=f"from:hermes,to:zeus",
+            )
+        )
 
         # Fire off the agent call and a delayed status update concurrently.
         response_task = asyncio.create_task(get_agent_response(user_id, prompt))
@@ -150,6 +158,14 @@ async def _send_with_typing(
             await chat.send_action(ChatAction.TYPING)
 
         response_text = await response_task
+
+        # Mark Hermes as completed in the dashboard.
+        asyncio.create_task(
+            emit_event(
+                EventType.AGENT_COMPLETED.value,
+                agent=AgentName.HERMES.value,
+            )
+        )
 
         # Always send the text response first.
         await chat.send_message(response_text)

@@ -27,7 +27,7 @@ from sandbox.models import (
     ThreatReport,
 )
 
-_SANDBOX_URL: str = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
+_SANDBOX_URL: str = os.getenv("SANDBOX_API_URL", "http://localhost:9000")
 _POLL_INTERVAL: float = 2.0
 _MAX_POLLS: int = 30
 _SUPPRESS_REPORT_EVENTS: ContextVar[bool] = ContextVar(

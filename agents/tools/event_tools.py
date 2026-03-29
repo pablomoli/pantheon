@@ -16,7 +16,7 @@ from sandbox.models import AgentName, EventType, PantheonEvent
 
 logger = logging.getLogger("pantheon.events")
 
-_SANDBOX_URL: str = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
+_SANDBOX_URL: str = os.getenv("SANDBOX_API_URL", "http://localhost:9000")
 
 
 async def emit_event(

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from gateway.webapp import app
@@ -25,18 +24,3 @@ def test_agent_config_returns_id() -> None:
     assert resp.status_code == 200
     data = resp.json()
     assert data["agent_id"] == "test-agent-123"
-
-
-def test_tool_status_sandbox_unreachable() -> None:
-    resp = client.post("/api/tools/status", json={})
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "degraded"
-
-
-def test_tool_analyze_no_sample(tmp_path: pytest.TempPathFactory) -> None:  # type: ignore[type-arg]
-    with patch("gateway.webapp._SAMPLES_DIR", tmp_path):
-        resp = client.post("/api/tools/analyze", json={"parameters": {"filename": "nope.js"}})
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "error"

@@ -52,7 +52,7 @@ async def tool_analyze(parameters: dict[str, Any]) -> str:
     job_id = str(uuid.uuid4())[:8]
     file_b64 = base64.b64encode(sample_path.read_bytes()).decode()
 
-    sandbox_url = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
+    sandbox_url = os.getenv("SANDBOX_API_URL", "http://localhost:9000")
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
@@ -105,7 +105,7 @@ async def tool_report(parameters: dict[str, Any]) -> str:
             }
         )
 
-    sandbox_url = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
+    sandbox_url = os.getenv("SANDBOX_API_URL", "http://localhost:9000")
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(f"{sandbox_url}/sandbox/report/{job_id}")
@@ -122,7 +122,7 @@ async def tool_report(parameters: dict[str, Any]) -> str:
 
 async def tool_status(parameters: dict[str, Any]) -> str:
     """Webhook: check if the sandbox is healthy and ready."""
-    sandbox_url = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
+    sandbox_url = os.getenv("SANDBOX_API_URL", "http://localhost:9000")
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(f"{sandbox_url}/sandbox/health")

@@ -21,7 +21,7 @@ from agents.model_config import get_next_gemini_api_key
 from agents.tools.event_tools import emit_event
 from sandbox.models import AgentName, EventType
 
-_SANDBOX_URL: str = os.getenv("SANDBOX_API_URL", "http://sandbox:9000")
+_SANDBOX_URL: str = os.getenv("SANDBOX_API_URL", "http://localhost:9000")
 _MODEL: str = "gemini-2.5-flash"
 
 _SYNTHESIS_PROMPT = """\
