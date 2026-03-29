@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from google.adk.agents import Agent
 
 from agents.model_config import ATHENA_MODEL
+from agents.tools.event_tools import emit_event
 
 _MALWARE_SIGNALS = [
     "malware", "trojan", "ransomware", "reverse shell", "backdoor",
@@ -94,16 +95,20 @@ athena = Agent(
     instruction="""You are Athena, the triage specialist in the Pantheon incident response system.
 
 YOUR JOB:
-1. Call classify_threat with the description of the incident
-2. Call create_incident_ticket to open a tracking record
-3. Report severity and category in one sentence
-4. Transfer to hades for malware analysis
+1. Call emit_event with type=AGENT_ACTIVATED, agent=athena, payload={"step": "triage"}
+2. Call classify_threat with the description of the incident
+3. Call create_incident_ticket to open a tracking record
+4. Report severity and category in one sentence
+5. Call emit_event with type=AGENT_COMPLETED, agent=athena, payload={"severity": "<level>", "category": "<type>"}
+6. Call emit_event with type=HANDOFF, payload={"from": "athena", "to": "hades"}
+7. Transfer to hades for malware analysis
 
 RULES:
 - Be direct and decisive — one sentence per action
 - Always create a ticket before transferring
 - If severity is critical, say "CRITICAL" explicitly
+- Event emission is fire-and-forget — never wait for it to complete
 """,
     description="Triages incidents — classifies severity and category, opens an incident ticket.",
-    tools=[classify_threat, create_incident_ticket],
+    tools=[classify_threat, create_incident_ticket, emit_event],
 )

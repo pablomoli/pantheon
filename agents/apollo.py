@@ -17,6 +17,7 @@ from google.adk.agents import Agent
 
 from agents.ares import ares
 from agents.model_config import APOLLO_MODEL
+from agents.tools.event_tools import emit_event
 from agents.tools.memory_tools import (
     load_prior_runs,
     store_agent_output,
@@ -39,6 +40,7 @@ ThreatReport dict in context.
 
 ## Your Workflow
 
+0. Call `emit_event` with type=AGENT_ACTIVATED, agent=apollo, payload={"step": "start"}
 1. Call `load_prior_runs` with the job_id and agent_name "apollo" to check for
    prior Apollo work on this job. If prior runs exist, review them and extend
    rather than repeat — build on what was already discovered.
@@ -53,8 +55,12 @@ ThreatReport dict in context.
 7. Call `store_agent_output` with the job_id, agent_name "apollo", your full
    enrichment and report output combined, and temperature 0.3. This stores your
    analysis for synthesis across multiple runs.
-8. Transfer to `ares` — pass the formatted report, enrichment text, and the
-   original ThreatReport dict in your message so Ares can generate response plans.
+8. Call `emit_event` with type=AGENT_COMPLETED, agent=apollo, job_id=job_id,
+   payload={"step": "complete"}.
+9. Call `emit_event` with type=HANDOFF, agent=apollo, job_id=job_id,
+   payload={"from": "apollo", "to": "ares"}.
+10. Transfer to `ares` — pass the formatted report, enrichment text, and the
+    original ThreatReport dict in your message so Ares can generate response plans.
 
 ## Rules
 
@@ -207,6 +213,7 @@ apollo: Agent = Agent(
         load_prior_runs,
         store_agent_output,
         synthesize_prior_runs,
+        emit_event,
     ],
     sub_agents=[ares],
 )
