@@ -8,9 +8,13 @@ import {
   Background,
   Controls,
   Node,
+  NodeMouseHandler,
+  NodeProps,
   Edge,
   Panel,
   EdgeProps,
+  Handle,
+  Position,
   getBezierPath,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -32,6 +36,19 @@ const AGENT_META: Record<AgentName, { icon: LucideIcon; color: string; label: st
 };
 
 const AGENT_ORDER: AgentName[] = ['athena', 'hades', 'apollo', 'ares', 'hermes', 'artemis', 'hephaestus'];
+const HANDLE_POSITIONS = {
+  top: Position.Top,
+  right: Position.Right,
+  bottom: Position.Bottom,
+  left: Position.Left,
+} as const;
+
+type HandleId = keyof typeof HANDLE_POSITIONS;
+type GodNodeData = {
+  name: AgentName;
+  state: AgentStatus['state'];
+  last_thought?: string;
+};
 
 // Circular layout coordinates (Zeus at 0,0)
 const RAD = 320;
@@ -45,9 +62,20 @@ const POSITIONS: Record<AgentName, { x: number; y: number }> = {
   ),
 } as Record<AgentName, { x: number; y: number }>;
 
+function getHandleId(source: AgentName, target: AgentName): HandleId {
+  const dx = POSITIONS[target].x - POSITIONS[source].x;
+  const dy = POSITIONS[target].y - POSITIONS[source].y;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx >= 0 ? 'right' : 'left';
+  }
+
+  return dy >= 0 ? 'bottom' : 'top';
+}
+
 // ─── Custom Components ──────────────────────────────────────────────────────
 
-const GodNode = ({ data }: { data: any }) => {
+const GodNode = ({ data }: NodeProps<Node<GodNodeData, 'god'>>) => {
   const meta = AGENT_META[data.name as AgentName];
   const isZeus    = data.name === 'zeus';
   const isActive  = data.state === 'active';
@@ -61,6 +89,27 @@ const GodNode = ({ data }: { data: any }) => {
 
   return (
     <div className="relative flex flex-col items-center" style={{ width: size + 60 }}>
+      {Object.entries(HANDLE_POSITIONS).map(([id, position]) => (
+        <Handle
+          key={`target-${id}`}
+          id={id}
+          type="target"
+          position={position}
+          isConnectable={false}
+          style={{ opacity: 0, pointerEvents: 'none' }}
+        />
+      ))}
+
+      {Object.entries(HANDLE_POSITIONS).map(([id, position]) => (
+        <Handle
+          key={`source-${id}`}
+          id={id}
+          type="source"
+          position={position}
+          isConnectable={false}
+          style={{ opacity: 0, pointerEvents: 'none' }}
+        />
+      ))}
 
       {/* Zeus command-radius ring */}
       {isZeus && (
@@ -226,7 +275,7 @@ export default function OlympusFlow({ store, onSelect }: { store: EventStore, on
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  const onNodeClick = (_: any, node: Node) => {
+  const onNodeClick: NodeMouseHandler<Node> = (_, node) => {
     const agents = store.getAgents();
     const agent = agents.find(a => a.name === node.id);
     if (agent) onSelect(agent);
@@ -260,11 +309,15 @@ export default function OlympusFlow({ store, onSelect }: { store: EventStore, on
           (h) => `${h.from}->${h.to}` === handoffKey || `${h.from}->${h.to}` === reverseKey
         );
         const isActive = !!activeHandoff;
+        const source = isActive && activeHandoff!.from !== 'zeus' ? name : 'zeus';
+        const target = isActive && activeHandoff!.from !== 'zeus' ? 'zeus' : name;
 
         return {
           id: `edge-${name}`,
-          source: isActive && activeHandoff!.from !== 'zeus' ? name : 'zeus',
-          target: isActive && activeHandoff!.from !== 'zeus' ? 'zeus' : name,
+          source,
+          target,
+          sourceHandle: getHandleId(source, target),
+          targetHandle: getHandleId(target, source),
           type: 'particle',
           data: {
             active: isActive,
@@ -280,6 +333,8 @@ export default function OlympusFlow({ store, onSelect }: { store: EventStore, on
             id: `handoff-agent-${i}`,
             source: h.from,
             target: h.to,
+            sourceHandle: getHandleId(h.from as AgentName, h.to as AgentName),
+            targetHandle: getHandleId(h.to as AgentName, h.from as AgentName),
             type: 'particle',
             data: {
               active: true,
