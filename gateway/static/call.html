@@ -666,6 +666,7 @@
     let conversation = null;
     let isActive = false;
     let isMuted = false;
+    let micStream = null;
     let timerInterval = null;
     let seconds = 0;
     let messageCount = 0;
@@ -777,15 +778,11 @@
       if (!conversation) return;
       isMuted = !isMuted;
 
-      // ElevenLabs SDK: setVolume(0) mutes input, setVolume({volume: 1}) unmutes
-      try {
-        if (isMuted) {
-          conversation.setVolume({ volume: 0 });
-        } else {
-          conversation.setVolume({ volume: 1 });
-        }
-      } catch (e) {
-        console.warn('setVolume not available, using audio track toggle');
+      // Mute the actual microphone tracks so no audio reaches ElevenLabs
+      if (micStream) {
+        micStream.getAudioTracks().forEach(track => {
+          track.enabled = !isMuted;
+        });
       }
 
       muteBtn.classList.toggle('muted', isMuted);
@@ -818,7 +815,7 @@
           'https://cdn.jsdelivr.net/npm/@11labs/client@latest/+esm'
         );
 
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
         conversation = await Conversation.startSession({
           agentId: agent_id,
@@ -835,6 +832,10 @@
             stopTimer();
             conversation = null;
             toolCallActive = false;
+            if (micStream) {
+              micStream.getTracks().forEach(t => t.stop());
+              micStream = null;
+            }
           },
           onMessage: ({ message, source }) => {
             if (message) {
@@ -880,6 +881,10 @@
     async function endCall() {
       if (conversation) {
         try { await conversation.endSession(); } catch (e) { /* ok */ }
+      }
+      if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
       }
       setCallUI(false);
       setStatus('Ended', '');
