@@ -104,3 +104,16 @@ body {
     ),
     #FAFAF0;
 }
+
+/* Agent node glow pulse — used by OlympusFlow GodNode */
+@keyframes pulse-ring {
+  0%, 100% { transform: scale(1);    opacity: 0.5; }
+  50%       { transform: scale(1.18); opacity: 0.2; }
+}
+
+/* Particle travel along SVG path — reserved for CSS fallback if needed */
+@keyframes particle-travel {
+  0%   { offset-distance: 0%;   opacity: 1;   }
+  90%  { offset-distance: 100%; opacity: 0.8; }
+  100% { offset-distance: 100%; opacity: 0;   }
+}
