@@ -61,9 +61,7 @@ export default function AgentInspector({ agent }: { agent: AgentStatus | null })
   return (
     <div className="h-full flex flex-col glass-panel rounded-2xl overflow-hidden border-gold/20 shadow-warm bg-white/40">
       {/* Header */}
-      <div className="px-6 py-8 border-b border-gold/10 bg-gradient-to-br from-gold/5 via-white/50 to-transparent relative overflow-hidden">
-        {/* Decorative corner */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gold/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+      <div className="px-6 py-8 border-b border-gold/10 bg-white/40 relative overflow-hidden">
         
         <div className="relative flex items-start justify-between">
           <div className="flex gap-4">

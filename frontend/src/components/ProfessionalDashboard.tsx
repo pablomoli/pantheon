@@ -59,7 +59,7 @@ export default function ProfessionalDashboard() {
       <aside className="w-64 glass-panel border-r border-gold/10 flex flex-col z-20">
         <div className="p-8 pb-4">
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-dark to-gold flex items-center justify-center shadow-gold">
+            <div className="w-8 h-8 rounded-lg bg-sienna flex items-center justify-center shadow-gold">
               <Shield className="w-5 h-5 text-white" />
             </div>
             <h1 className="font-serif text-xl font-bold tracking-tight italic">Pantheon</h1>
@@ -167,11 +167,11 @@ function NavButton({ active, icon, label, onClick }: { active: boolean, icon: Re
   return (
     <button 
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all active:scale-95
-        ${active ? 'bg-gold text-white shadow-gold font-bold translate-x-2' : 'hover:bg-gold/5 text-muted hover:text-gold-dark'}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all active:scale-95 border-l-4
+        ${active ? 'bg-gold/10 text-gold-dark border-gold shadow-sm font-bold translate-x-1 outline-none' : 'hover:bg-gold/5 text-muted hover:text-gold-dark border-transparent'}
       `}
     >
-      <span className={`transition-colors ${active ? 'text-white' : 'text-gold-dark/40'}`}>
+      <span className={`transition-colors ${active ? 'text-gold-dark' : 'text-gold-dark/40'}`}>
         {React.cloneElement(icon as React.ReactElement, { size: 18 } as any)}
       </span>
       {label}

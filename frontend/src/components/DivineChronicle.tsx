@@ -42,8 +42,8 @@ export default function DivineChronicle({ store }: { store: EventStore }) {
   }, [events]);
 
   return (
-    <div className="flex flex-col h-full glass-panel rounded-2xl overflow-hidden border-gold/20 shadow-warm">
-      <div className="px-6 py-4 border-b border-gold/10 bg-white/50 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full glass-panel rounded-2xl overflow-hidden border-gold/20 shadow-warm bg-white/40">
+      <div className="px-6 py-4 border-b border-gold/10 bg-white/20 flex items-center justify-between shrink-0">
         <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gold-dark flex items-center gap-2">
           <Activity className="w-4 h-4" />
           Divine Chronicle
