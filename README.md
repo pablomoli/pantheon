@@ -307,6 +307,36 @@ See `.env.example` for all required variables. Key ones:
 
 ---
 
+## Google ADK Demo
+
+Pantheon exposes a live ADK Dev UI and a remote A2A specialist on Google Cloud Run.
+
+| Surface | URL |
+| ------- | --- |
+| ADK Dev UI (open for judges) | `$PANTHEON_AGENTS_URL/dev-ui/` |
+| Pantheon agent API | `$PANTHEON_AGENTS_URL` |
+| Remote A2A impact specialist | `$PANTHEON_IMPACT_AGENT_URL` |
+
+**What judges will see in the ADK UI:**
+- The full Pantheon agent tree (Zeus → Athena → Hades → Apollo → Ares)
+- Three Ares planning branches executing in parallel (`ares_planning_parallel`)
+- A verifier/reviser self-correction loop (`ares_refinement_loop`, max 2 iterations)
+- An outbound A2A handshake from Apollo to the remote `impact-agent` Cloud Run service
+- The impact analysis folded back into the final incident response document
+
+**Deploy to Cloud Run:**
+
+```bash
+export GCP_PROJECT_ID=your-project-id   # or set in .env
+./infra/cloud-deploy.sh
+```
+
+The script enables required APIs, builds and pushes the Docker image to Artifact Registry, deploys both services, and wires the A2A URL automatically. Public URLs are printed at the end.
+
+See `docs/demo-judge-walkthrough.md` for the 4-minute judge demo script.
+
+---
+
 ## Deployment
 
 The full stack runs via Docker Compose on a Vultr VPS. See `infra/` and `infra/deploy.sh`.

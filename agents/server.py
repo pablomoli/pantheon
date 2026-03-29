@@ -7,7 +7,10 @@ from fastapi import FastAPI
 from google.adk.cli.fast_api import get_fast_api_app
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-AGENTS_DIR = str(_REPO_ROOT / "adk_apps")
+AGENTS_DIR = os.getenv(
+    "PANTHEON_ADK_AGENTS_DIR",
+    str(_REPO_ROOT / "adk_apps"),
+)
 SESSION_SERVICE_URI = os.getenv(
     "PANTHEON_ADK_SESSION_SERVICE_URI",
     "sqlite+aiosqlite:///./data/sessions.db",
