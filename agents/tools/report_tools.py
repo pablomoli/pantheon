@@ -7,20 +7,20 @@ readable output that the LLM can include in the final incident report.
 from __future__ import annotations
 
 import json
-import os
 from typing import Any
 
 from google import genai
 from google.genai import types as genai_types
 
+from agents.model_config import get_next_gemini_api_key
 from agents.tools.event_tools import emit_event
 from sandbox.models import AgentName, EventType
 _MODEL: str = "gemini-2.5-flash"
 
 
 def _gemini_client() -> genai.Client:
-    """Return an authenticated Gemini client using GEMINI_API."""
-    api_key: str = os.environ["GEMINI_API"]
+    """Return an authenticated Gemini client using round-robin key rotation."""
+    api_key = get_next_gemini_api_key()
     return genai.Client(api_key=api_key)
 
 

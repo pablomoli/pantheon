@@ -7,6 +7,7 @@ import httpx
 from google import genai
 from google.genai import types
 
+from agents.model_config import get_next_gemini_api_key
 from voice.exceptions import SpeechError, TranscriptionError
 from voice.personas import ZEUS_VOICE_ID
 from agents.model_config import MUSE_STT_MODEL
@@ -106,9 +107,7 @@ async def _transcribe_elevenlabs(audio_bytes: bytes, mime_type: str) -> str:
 
 async def _transcribe_gemini(audio_bytes: bytes, mime_type: str) -> str:
     """Internal Gemini STT fallback implementation using recommended model."""
-    api_key = os.getenv("GEMINI_API")
-    if not api_key:
-        raise RuntimeError("GEMINI_API is not set")
+    api_key = get_next_gemini_api_key()
 
     client = genai.Client(api_key=api_key)
     response = await client.aio.models.generate_content(

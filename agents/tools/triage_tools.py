@@ -8,12 +8,13 @@ Owner: Andres (tools directory), consumed by Athena (Pablo).
 
 from __future__ import annotations
 
-import os
 import uuid
 from typing import Any
 
 from google import genai
 from google.genai import types as genai_types
+
+from agents.model_config import get_next_gemini_api_key
 
 _MODEL: str = "gemini-2.5-flash"
 
@@ -50,8 +51,8 @@ Sample information:
 
 
 def _gemini_client() -> genai.Client:
-    """Return an authenticated Gemini client using GEMINI_API."""
-    api_key: str = os.environ["GEMINI_API"]
+    """Return an authenticated Gemini client using round-robin key rotation."""
+    api_key = get_next_gemini_api_key()
     return genai.Client(api_key=api_key)
 
 

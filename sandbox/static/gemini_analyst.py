@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from typing import Any, cast
 
 from google import genai
 from google.genai import types
 
+from agents.model_config import get_next_gemini_api_key
 from sandbox.models import FileIOCs, NetworkIOCs, RiskLevel, ThreatReport
 
 _MODEL = "gemini-2.5-flash"
@@ -44,7 +44,7 @@ Extracted content:
 
 class GeminiAnalyst:
     def __init__(self, api_key: str | None = None) -> None:
-        self._api_key = api_key or os.environ["GEMINI_API"]
+        self._api_key = api_key or get_next_gemini_api_key()
         self._client = genai.Client(api_key=self._api_key)
 
     async def analyze(self, summary_text: str) -> ThreatReport:
