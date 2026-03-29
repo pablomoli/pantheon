@@ -1176,7 +1176,7 @@ git commit -m "feat(sandbox): dynamic analysis output parser"
 - Create: `sandbox/analyzer.py`
 - Create: `tests/sandbox/test_analyzer.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 # tests/sandbox/test_analyzer.py
@@ -1249,13 +1249,13 @@ def test_get_iocs_unknown_job() -> None:
     assert analyzer.get_iocs("nonexistent") is None
 ```
 
-- [ ] **Step 2: Verify failures**
+- [x] **Step 2: Verify failures**
 
 ```bash
 uv run pytest tests/sandbox/test_analyzer.py -v
 ```
 
-- [ ] **Step 3: Implement `sandbox/analyzer.py`**
+- [x] **Step 3: Implement `sandbox/analyzer.py`**
 
 ```python
 """Hephaestus analysis orchestrator — runs static + dynamic pipelines, stores results."""
@@ -1404,7 +1404,7 @@ def _iocs_from_report(report: ThreatReport) -> IOCReport:
     )
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 uv run pytest tests/sandbox/test_analyzer.py -v
@@ -1412,7 +1412,7 @@ uv run pytest tests/sandbox/test_analyzer.py -v
 
 Expected: all 4 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sandbox/analyzer.py tests/sandbox/test_analyzer.py
@@ -1429,7 +1429,7 @@ git commit -m "feat(sandbox): analysis orchestrator — merges static + dynamic 
 
 This is the moment Andres can start calling the API.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 # tests/sandbox/test_main.py
@@ -1502,13 +1502,13 @@ def test_get_iocs_found(client: TestClient) -> None:
     assert "1.2.3.4" in resp.json()["ips"]
 ```
 
-- [ ] **Step 2: Verify failures**
+- [x] **Step 2: Verify failures**
 
 ```bash
 uv run pytest tests/sandbox/test_main.py -v
 ```
 
-- [ ] **Step 3: Implement `sandbox/main.py`**
+- [x] **Step 3: Implement `sandbox/main.py`**
 
 ```python
 """Hephaestus — FastAPI sandbox service."""
@@ -1574,7 +1574,7 @@ def get_iocs(job_id: str) -> IOCReport:
     return iocs
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 uv run pytest tests/sandbox/test_main.py -v
@@ -1582,7 +1582,7 @@ uv run pytest tests/sandbox/test_main.py -v
 
 Expected: all 5 tests pass.
 
-- [ ] **Step 5: Run the service locally to verify it starts**
+- [x] **Step 5: Run the service locally to verify it starts**
 
 ```bash
 uv run uvicorn sandbox.main:app --port 9000 --reload
@@ -1595,7 +1595,7 @@ curl http://localhost:9000/sandbox/health
 
 Expected: `{"status":"ok","docker_available":true,"version":"0.1.0"}` (or degraded if Docker isn't running)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add sandbox/main.py tests/sandbox/test_main.py
@@ -1612,7 +1612,7 @@ git commit -m "feat(sandbox): Hephaestus FastAPI service — analyze, report, io
 - Create: `agents/athena.py`
 - Create: `tests/agents/test_athena.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 # tests/agents/test_athena.py
@@ -1650,13 +1650,13 @@ def test_create_ticket_returns_id() -> None:
     assert ticket.severity == "critical"
 ```
 
-- [ ] **Step 2: Verify failures**
+- [x] **Step 2: Verify failures**
 
 ```bash
 uv run pytest tests/agents/test_athena.py -v
 ```
 
-- [ ] **Step 3: Implement `agents/athena.py`**
+- [x] **Step 3: Implement `agents/athena.py`**
 
 ```python
 """Athena — triage agent. Classifies threats and opens incident tickets."""
@@ -1768,7 +1768,7 @@ RULES:
 )
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 uv run pytest tests/agents/test_athena.py -v
@@ -1776,7 +1776,7 @@ uv run pytest tests/agents/test_athena.py -v
 
 Expected: all 4 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add agents/athena.py tests/agents/test_athena.py
@@ -1792,7 +1792,7 @@ git commit -m "feat(agents): Athena triage agent — classify threat + create ti
 
 No unit tests for Zeus — it requires the full ADK runtime and depends on Andres's agents being present. Integration tested at run time.
 
-- [ ] **Step 1: Create `agents/zeus.py`**
+- [x] **Step 1: Create `agents/zeus.py`**
 
 ```python
 """Zeus — root ADK orchestrator for Pantheon."""
@@ -1845,7 +1845,7 @@ Then immediately transfer to athena.
 )
 ```
 
-- [ ] **Step 2: Verify import works**
+- [x] **Step 2: Verify import works**
 
 ```bash
 uv run python -c "from agents.zeus import zeus; print(zeus.name)"
@@ -1853,7 +1853,7 @@ uv run python -c "from agents.zeus import zeus; print(zeus.name)"
 
 Expected: `zeus`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add agents/zeus.py
@@ -1867,7 +1867,7 @@ git commit -m "feat(agents): Zeus root orchestrator — routes to Athena (Andres
 **Files:**
 - Create: `agents/artemis.py`
 
-- [ ] **Step 1: Create `agents/artemis.py`**
+- [x] **Step 1: Create `agents/artemis.py`**
 
 ```python
 """Artemis — idle sentinel daemon. Watches for new malware samples and auto-triggers analysis."""
@@ -1932,7 +1932,7 @@ class Artemis:
                 logger.error("Artemis poll error: %s", exc)
 ```
 
-- [ ] **Step 2: Verify import**
+- [x] **Step 2: Verify import**
 
 ```bash
 uv run python -c "from agents.artemis import Artemis; print('ok')"
@@ -1940,7 +1940,7 @@ uv run python -c "from agents.artemis import Artemis; print('ok')"
 
 Expected: `ok`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add agents/artemis.py
@@ -1959,7 +1959,7 @@ git commit -m "feat(agents): Artemis file-watcher sentinel daemon"
 - Create: `infra/nginx.conf`
 - Create: `infra/deploy.sh`
 
-- [ ] **Step 1: Create `infra/Dockerfile.sandbox`**
+- [x] **Step 1: Create `infra/Dockerfile.sandbox`**
 
 ```dockerfile
 FROM python:3.12-slim
@@ -1983,7 +1983,7 @@ EXPOSE 9000
 CMD ["uv", "run", "uvicorn", "sandbox.main:app", "--host", "0.0.0.0", "--port", "9000"]
 ```
 
-- [ ] **Step 2: Create `infra/Dockerfile.agents`**
+- [x] **Step 2: Create `infra/Dockerfile.agents`**
 
 ```dockerfile
 FROM python:3.12-slim
@@ -2003,7 +2003,7 @@ EXPOSE 8001
 CMD ["uv", "run", "uvicorn", "agents.server:app", "--host", "0.0.0.0", "--port", "8001"]
 ```
 
-- [ ] **Step 3: Create `infra/Dockerfile.gateway`**
+- [x] **Step 3: Create `infra/Dockerfile.gateway`**
 
 ```dockerfile
 FROM python:3.12-slim
@@ -2025,7 +2025,7 @@ EXPOSE 8000
 CMD ["uv", "run", "python", "-m", "gateway.bot"]
 ```
 
-- [ ] **Step 4: Create `infra/docker-compose.yml`**
+- [x] **Step 4: Create `infra/docker-compose.yml`**
 
 ```yaml
 services:
@@ -2096,7 +2096,7 @@ networks:
     driver: bridge
 ```
 
-- [ ] **Step 5: Create `infra/nginx.conf`**
+- [x] **Step 5: Create `infra/nginx.conf`**
 
 ```nginx
 server {
@@ -2118,7 +2118,7 @@ server {
 }
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add infra/

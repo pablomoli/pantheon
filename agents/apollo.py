@@ -30,7 +30,7 @@ from agents.tools.report_tools import (
 )
 from agents.tools.sandbox_tools import get_iocs, get_report
 
-_INSTRUCTION = """\
+_INSTRUCTION = r"""\
 You are Apollo, the god of knowledge — Pantheon's IOC extraction and threat
 intelligence specialist.
 
