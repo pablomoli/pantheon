@@ -116,7 +116,7 @@ const SESSIONS: AgentSession[] = [
                 {
                   kind: "thought",
                   revealAt: 500,
-                  text: "Sandbox healthy. Submitting payload for full analysis (static + dynamic).",
+                  thought: "Sandbox healthy. Submitting payload for full analysis (static + dynamic).",
                 },
                 {
                   kind: "tool_call",
@@ -144,7 +144,7 @@ const SESSIONS: AgentSession[] = [
                 {
                   kind: "thought",
                   revealAt: 2500,
-                  text: "Analysis complete. WSH dropper confirmed — Risk: CRITICAL. C2 beaconing to 198.51.100.42 over HTTPS. Persistence via HKCU Run key. Transferring ThreatReport to Apollo.",
+                  thought: "Analysis complete. WSH dropper confirmed — Risk: CRITICAL. C2 beaconing to 198.51.100.42 over HTTPS. Persistence via HKCU Run key. Transferring ThreatReport to Apollo.",
                 },
               ],
             },
@@ -159,7 +159,7 @@ const SESSIONS: AgentSession[] = [
                 {
                   kind: "thought",
                   revealAt: 150,
-                  text: "Running triage classification on raw file content.",
+                  thought: "Running triage classification on raw file content.",
                 },
                 {
                   kind: "tool_call",
@@ -174,7 +174,7 @@ const SESSIONS: AgentSession[] = [
                 {
                   kind: "thought",
                   revealAt: 900,
-                  text: "Confirmed WSH dropper at 94% confidence. Deobfuscation reveals WScript.Shell + XMLHTTP download pattern. Corroborates dynamic analysis path.",
+                  thought: "Confirmed WSH dropper at 94% confidence. Deobfuscation reveals WScript.Shell + XMLHTTP download pattern. Corroborates dynamic analysis path.",
                 },
               ],
             },
