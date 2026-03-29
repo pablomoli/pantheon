@@ -7,7 +7,10 @@ Coordinate with Pablo before making any changes.
 
 from __future__ import annotations
 
-from typing import Literal
+import uuid
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -159,3 +162,83 @@ class SimilarJob(BaseModel):
         default_factory=list,
         description="Behavior strings present in both jobs",
     )
+
+
+# --- Event system models ----------------------------------------------------
+
+
+class EventType(str, Enum):
+    """All event types emitted by agents and tools to the EventBus."""
+
+    AGENT_ACTIVATED = "agent_activated"
+    AGENT_COMPLETED = "agent_completed"
+    HANDOFF = "handoff"
+    TOOL_CALLED = "tool_called"
+    TOOL_RESULT = "tool_result"
+    IOC_DISCOVERED = "ioc_discovered"
+    STAGE_UNLOCKED = "stage_unlocked"
+    PROCESS_EVENT = "process_event"
+    NETWORK_EVENT = "network_event"
+    ANALYSIS_COMPLETE = "analysis_complete"
+    ERROR = "error"
+
+
+class AgentName(str, Enum):
+    """Canonical agent identifiers used in events."""
+
+    ZEUS = "zeus"
+    ATHENA = "athena"
+    HADES = "hades"
+    APOLLO = "apollo"
+    ARES = "ares"
+    HERMES = "hermes"
+
+
+class PantheonEvent(BaseModel):
+    """A single structured event broadcast through the EventBus."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    ts: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    type: EventType
+    agent: AgentName | None = None
+    tool: str | None = None
+    job_id: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProcessEvent(BaseModel):
+    """A file, registry, or process event captured by Procmon on the Windows VPS."""
+
+    event_type: Literal["file_write", "registry_write", "process_spawn"]
+    path: str
+    value: str | None = None
+    process: str
+    pid: int
+
+
+class NetworkEvent(BaseModel):
+    """A network event captured by FakeNet-NG or tshark on the Windows VPS."""
+
+    event_type: Literal["dns_query", "http_request", "tcp_connect"]
+    host: str
+    path: str | None = None
+    payload_preview: str | None = None
+
+
+class AttackStage(BaseModel):
+    """A confirmed stage of the malware's attack chain."""
+
+    stage_id: str
+    label: str
+    description: str
+    icon: str
+
+
+class DetonationResult(BaseModel):
+    """Combined output from a live Windows VPS detonation run."""
+
+    process_events: list[ProcessEvent] = Field(default_factory=list)
+    network_events: list[NetworkEvent] = Field(default_factory=list)
+    error: str | None = None
